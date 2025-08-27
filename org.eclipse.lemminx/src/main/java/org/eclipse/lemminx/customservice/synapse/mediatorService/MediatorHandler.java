@@ -170,7 +170,6 @@ public class MediatorHandler {
 
     private SynapseConfigResponse generateConnectorSynapseConfig(STNode node, String mediator, Map<String, Object> data,
                                                                  Range range) {
-
         ConnectorAction operation = getConnectorOperation(node, mediator);
         if (operation != null) {
             List<OperationParameter> parameters = operation.getParameters();
@@ -207,7 +206,6 @@ public class MediatorHandler {
     }
 
     protected Map<String, Object> processConnectorParameter(Object data) {
-
         Map<String, Object> dataValue = new HashMap<>();
         boolean isExpressionField = false;
         if (data instanceof String) {
