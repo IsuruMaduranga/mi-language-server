@@ -54,6 +54,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -65,6 +66,7 @@ import static org.eclipse.lemminx.customservice.synapse.utils.UISchemaMapper.map
 public class MediatorHandler {
 
     private static final Logger LOGGER = Logger.getLogger(MediatorHandler.class.getName());
+    private static final int MAX_DEPTH = 10;
     private JsonObject mediatorList;
     private JsonObject agentToolList;
     private Map<String, JsonObject> uiSchemaMap;
@@ -237,6 +239,11 @@ public class MediatorHandler {
             StringBuilder dataValueStr = new StringBuilder("[");
             int i = 0;
             for (LinkedTreeMap dataValueItem : dataValueList) {
+                // Separate only if another value exists
+                if (i > 0) {
+                    dataValueStr.append(",");
+                }
+
                 if (dataValueItem.get(Constant.PROPERTY_NAME) != null &&
                         dataValueItem.get(Constant.PROPERTY_VALUE) != null) {
                     Object propertyValue;
@@ -257,7 +264,10 @@ public class MediatorHandler {
 
                     // if count of value larger than 0
                     dataValueStr.append("[");
-                    for (Object key : dataValueItem.keySet()) {
+                    Iterator<Object> iterator = dataValueItem.keySet().iterator();
+                    while (iterator.hasNext()) {
+                        boolean keepAsObject = false;
+                        Object key = iterator.next();
                         Object propertyValue;
                         if (dataValueItem.get(key) instanceof LinkedTreeMap) {
                             LinkedTreeMap dataValueLinkedTree = (LinkedTreeMap) dataValueItem.get(key);
@@ -266,14 +276,28 @@ public class MediatorHandler {
                             propertyValue = dataValueItem.get(key);
                         }
 
-                        // encode double quotes in the value if present
-                        if (propertyValue instanceof String) {
-                            propertyValue = ((String) propertyValue).replace("\"", "\\\"");
+                        if (propertyValue instanceof List) {
+                            keepAsObject = true;
+                            propertyValue = buildNestedArray(propertyValue);
                         }
 
-                        dataValueStr.append(String.format("\"%s\",", propertyValue));
+                        if (!keepAsObject) {
+                            // encode double quotes in the value if present
+                            if (propertyValue instanceof String) {
+                                propertyValue = ((String) propertyValue).replace("\"", "\\\"");
+                            }
+
+                            dataValueStr.append(String.format("\"%s\"", propertyValue));
+                        } else {
+                            dataValueStr.append(String.format("%s", propertyValue));
+                        }
+
+                        // Separate only if another value exists
+                        if (iterator.hasNext()) {
+                            dataValueStr.append(",");
+                        }
                     }
-                    dataValueStr.append("],");
+                    dataValueStr.append("]");
                 }
                 i++;
             }
@@ -678,5 +702,46 @@ public class MediatorHandler {
     protected Mustache getMustacheTemplate(String key) {
 
         return templateMap.get(key);
+    }
+
+    private String buildNestedArray(Object value) {
+
+        return buildNestedArray(value, 0);
+    }
+
+    private String buildNestedArray(Object value, int depth) {
+
+        if (depth > MAX_DEPTH) {
+            throw new IllegalArgumentException("Maximum JSON nesting depth exceeded");
+        }
+
+        // Unwrap LinkedTreeMap layers
+        while (value instanceof LinkedTreeMap) {
+            LinkedTreeMap map = (LinkedTreeMap) value;
+            if (map.get(Constant.VALUE) != null) {
+                value = map.get(Constant.VALUE);
+            } else {
+                break;
+            }
+        }
+
+        if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < list.size(); i++) {
+                sb.append(buildNestedArray(list.get(i)));
+                if (i < list.size() - 1) {
+                    sb.append(",");
+                }
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+
+        if (value instanceof String) {
+            return "\"" + ((String) value).replace("\"", "\\\"") + "\"";
+        }
+
+        return String.valueOf(value);
     }
 }
