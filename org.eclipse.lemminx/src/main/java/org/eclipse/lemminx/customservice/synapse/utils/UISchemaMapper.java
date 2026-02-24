@@ -121,6 +121,24 @@ public class UISchemaMapper {
                 }
             } else if (tableValue instanceof JsonArray) {
                 JsonArray tableValueArray = (JsonArray) tableValue;
+
+                if (tableValueArray.size() == 2 && tableValueArray.get(1).isJsonArray()) {
+
+                    JsonElement tableValueElement = tableValueArray.get(0);
+                    fieldName = (tableValueElement != null && tableValueElement.isJsonPrimitive()) ?
+                            tableValueElement.getAsString() : "";
+
+                    JsonArray nestedArray = tableValueArray.get(1).getAsJsonArray();
+                    JsonArray transformedArray = transformNestedArray(nestedArray);
+
+                    JsonArray tableDataRow = new JsonArray();
+                    tableDataRow.add(fieldName);
+                    tableDataRow.add(transformedArray);
+
+                    result.add(tableDataRow);
+                    continue;
+                }
+
                 if (tableValueArray.size() == 2) {
                     fieldName = tableValueArray.get(0).getAsString();
                     fieldValue = tableValueArray.get(1).getAsString();
@@ -276,5 +294,26 @@ public class UISchemaMapper {
                 }
             }
         }
+    }
+
+    private static JsonArray transformNestedArray(JsonArray array) {
+
+        JsonArray transformed = new JsonArray();
+
+        for (JsonElement element : array) {
+            if (element == null || element.isJsonNull()) {
+                transformed.add(new JsonArray());
+                continue;
+            }
+
+            if (element.isJsonArray()) {
+                transformed.add(transformNestedArray(element.getAsJsonArray()));
+            } else {
+                JsonArray singleValueArray = new JsonArray();
+                singleValueArray.add(element.isJsonPrimitive() ? element.getAsString() : element.toString());
+                transformed.add(singleValueArray);
+            }
+        }
+        return transformed;
     }
 }
