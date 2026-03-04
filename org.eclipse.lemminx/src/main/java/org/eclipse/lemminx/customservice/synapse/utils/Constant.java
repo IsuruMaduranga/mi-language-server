@@ -272,6 +272,8 @@ public class Constant {
     public static final String IC_CLASS = "icClass";
     public static final String DRIVER = "driver";
     public static final String URL = "url";
+    public static final String MAVEN_CENTRAL_URL = "https://search.maven.org/solrsearch/select?q=";
+    public static final String MAVEN_SEARCH_PARAM = "&rows=1&wt=json";
     public static final String USER = "user";
     public static final String COLUMN = "column";
     public static final String PRIORITY = "priority";
@@ -404,7 +406,6 @@ public class Constant {
     public static final String SYNAPSE_CONFIG_PATH = "/src/main/synapse-config";
     public static final String SEQUENCES = "sequences";
     public static final String PROXY_SERVICES = "proxy-services";
-
     public static final String INBOUND_ENDPOINTS = "inbound-endpoints";
     public static final String ENDPOINTS = "endpoints";
     public static final String DOT_PROJECT = ".project";
@@ -430,6 +431,7 @@ public class Constant {
     public static final String CALL_TEMPLATE = "call-template";
     public static final String STORE = "store";
     public static final String DEPENDENCY = "dependency";
+    public static final String DEPENDENCIES = "dependencies";
     public static final String INTEGRATION_PROJECT_DEPENDENCIES = "integration-project-dependencies";
     public static final String COMPONENT = "component";
     public static final String INCLUDE = "include";
@@ -646,6 +648,7 @@ public class Constant {
     public static final String COMBO = "combo";
     public static final String COMBO_VALUES = "comboValues";
     public static final String TRUE = "true";
+    public static final String UNKNOWN = "unknown";
     public static final String USE_LOCAL_MAVEN = "MI.useLocalMaven";
     public static final String OUTPUT_DIRECTORY = "outputDirectory";
     public static final String OS_TYPE = "os.name";

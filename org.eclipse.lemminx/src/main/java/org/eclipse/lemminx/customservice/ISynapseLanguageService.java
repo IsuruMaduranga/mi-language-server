@@ -46,6 +46,8 @@ import org.eclipse.lemminx.customservice.synapse.dependency.tree.pojo.Dependency
 import org.eclipse.lemminx.customservice.synapse.dependency.tree.pojo.OverviewModel;
 import org.eclipse.lemminx.customservice.synapse.directoryTree.DirectoryMapResponse;
 import org.eclipse.lemminx.customservice.synapse.driver.DriverDownloadRequest;
+import org.eclipse.lemminx.customservice.synapse.driver.DriverMavenCoordinatesResponse;
+import org.eclipse.lemminx.customservice.synapse.driver.DriverMavenCoordinatesRequest;
 import org.eclipse.lemminx.customservice.synapse.dynamic.db.DynamicField;
 import org.eclipse.lemminx.customservice.synapse.dynamic.db.GetDynamicFieldsRequest;
 import org.eclipse.lemminx.customservice.synapse.expression.pojo.ExpressionParam;
@@ -102,6 +104,9 @@ public interface ISynapseLanguageService {
 
     @JsonRequest
     CompletableFuture<SyntaxTreeResponse> syntaxTree(TextDocumentIdentifier param);
+
+    @JsonRequest
+    CompletableFuture<DBConnectionTestResponse> loadDriverAndTestConnection(DBConnectionTestParams request);
 
     @JsonRequest
     CompletableFuture<PublishDiagnosticsParams> diagnostic(TextDocumentIdentifier param);
@@ -276,6 +281,10 @@ public interface ISynapseLanguageService {
 
     @JsonRequest
     CompletableFuture<String> downloadDriverForConnector(DriverDownloadRequest request);
+
+    @JsonRequest
+    CompletableFuture<DriverMavenCoordinatesResponse> getDriverMavenCoordinates(
+            DriverMavenCoordinatesRequest request);
 
     @JsonRequest
     CompletableFuture<DeployPluginDetails> updateMavenDeployPlugin(DeployPluginDetails request);
