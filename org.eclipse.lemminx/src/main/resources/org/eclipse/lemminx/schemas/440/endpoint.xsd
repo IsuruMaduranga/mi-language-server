@@ -473,6 +473,11 @@
                 </xs:complexType>
             </xs:element>
             <xs:element name="authMode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="useGlobalConnectionTimeoutConfigs" type="xs:boolean" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="connectionTimeout" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="connectionRequestTimeout" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="socketTimeout" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="useGlobalProxyConfigs" type="xs:boolean" minOccurs="0" maxOccurs="1"/>
         </xs:sequence>
     </xs:group>
 
