@@ -46,11 +46,7 @@
               "inputType": "string",
               "required": false,
               "helpTip": "",
-              "enableCondition": [
-                {
-                  "doNotShow": true
-                }
-              ]
+              "hidden": "true"
             }
           }
         ]
