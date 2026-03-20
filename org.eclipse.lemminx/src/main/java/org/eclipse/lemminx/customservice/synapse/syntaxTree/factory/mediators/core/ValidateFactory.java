@@ -105,6 +105,10 @@ public class ValidateFactory extends AbstractMediatorFactory {
         if (cacheSchema != null) {
             ((Validate) node).setCacheSchema(Boolean.parseBoolean(cacheSchema));
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Validate) node).setTraceFilter(traceFilter);
+        }
     }
 
     private void populatePropertyAttributes(ValidateProperty validateProperty, DOMElement node) {

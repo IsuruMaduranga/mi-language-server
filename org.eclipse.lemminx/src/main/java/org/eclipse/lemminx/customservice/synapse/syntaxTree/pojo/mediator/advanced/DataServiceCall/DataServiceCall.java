@@ -23,6 +23,7 @@ public class DataServiceCall extends Mediator {
     DataServiceCallTarget target;
     String serviceName;
     String description;
+    String traceFilter;
 
     public DataServiceCall() {
         setDisplayName("Call Dataservice");
@@ -76,5 +77,15 @@ public class DataServiceCall extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

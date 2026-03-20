@@ -1,4 +1,4 @@
-    <dataServiceCall {{#description}}description="{{description}}"{{/description}} {{#serviceName}}serviceName="{{serviceName}}"{{/serviceName}}>
+    <dataServiceCall {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}"{{/description}} {{#serviceName}}serviceName="{{serviceName}}"{{/serviceName}}>
         {{^hasOperations}}
         <operations type="{{operationType}}"/>
         {{/hasOperations}}

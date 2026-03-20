@@ -67,6 +67,7 @@
             <xs:attribute name="pattern" type="xs:string" use="optional"/>
             <xs:attribute name="group" type="xs:int" use="optional"/>
             <xs:attribute name="description" type="xs:string" use="optional"/>
+            <xs:attribute name="traceFilter" type="xs:string"/>
         </xs:complexType>
     </xs:element>
 

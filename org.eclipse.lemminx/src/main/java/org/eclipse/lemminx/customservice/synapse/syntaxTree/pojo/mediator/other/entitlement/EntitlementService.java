@@ -35,6 +35,7 @@ public class EntitlementService extends Mediator {
     String adviceAttribute;
     String obligationsAttribute;
     String description;
+    String traceFilter;
 
     public EntitlementService() {
         setDisplayName("Entitlement Service");
@@ -198,5 +199,15 @@ public class EntitlementService extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

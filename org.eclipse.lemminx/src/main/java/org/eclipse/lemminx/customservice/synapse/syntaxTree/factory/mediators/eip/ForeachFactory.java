@@ -71,6 +71,10 @@ public class ForeachFactory extends AbstractMediatorFactory {
         if (id != null) {
             ((Foreach) node).setId(id);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Foreach) node).setTraceFilter(traceFilter);
+        }
     }
 
     private void populateV2Attributes(STNode node, DOMElement element) {

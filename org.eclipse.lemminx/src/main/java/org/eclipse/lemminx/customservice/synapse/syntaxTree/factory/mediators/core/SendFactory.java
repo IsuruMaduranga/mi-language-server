@@ -76,6 +76,10 @@ public class SendFactory extends AbstractMediatorFactory {
         if (description != null) {
             send.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            send.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

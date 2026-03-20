@@ -22,6 +22,7 @@ public class OauthService extends Mediator {
     String username;
     String password;
     String description;
+    String traceFilter;
 
     public OauthService() {
         setDisplayName("OAuth");
@@ -65,5 +66,15 @@ public class OauthService extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

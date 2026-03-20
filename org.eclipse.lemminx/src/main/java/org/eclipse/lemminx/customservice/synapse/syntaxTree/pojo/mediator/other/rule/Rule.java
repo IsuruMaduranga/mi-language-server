@@ -25,6 +25,7 @@ public class Rule extends Mediator {
     RuleOutput output;
     RuleChildMediators childMediators;
     String description;
+    String traceFilter;
 
     public Rule() {
         setDisplayName("Rule");
@@ -98,5 +99,15 @@ public class Rule extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

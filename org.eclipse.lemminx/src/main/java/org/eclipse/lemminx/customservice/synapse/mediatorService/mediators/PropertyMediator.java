@@ -89,6 +89,12 @@ public class PropertyMediator {
         data.put("namespaces", MediatorUtils.filterNamespaces(namespaces));
         data.put("propertyScope", ((String) data.get("propertyScope")).toLowerCase());
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
     }
 
@@ -153,6 +159,7 @@ public class PropertyMediator {
             value.put("namespaces", MediatorUtils.transformNamespaces(node.getNamespaces()));
         }
         data.put("value", value);
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

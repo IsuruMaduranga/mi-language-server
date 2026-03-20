@@ -1,5 +1,5 @@
 {{#isNewMediator}}
-<filter {{#description}}description="{{description}}" {{/description}}{{#regularExpression}}regex="{{regularExpression}}" {{/regularExpression}}{{#source}}source="{{source}}" {{/source}}{{#xPath}}xpath="{{xPath}}"{{/xPath}}{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}>
+<filter {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}" {{/description}}{{#regularExpression}}regex="{{regularExpression}}" {{/regularExpression}}{{#source}}source="{{source}}" {{/source}}{{#xPath}}xpath="{{xPath}}"{{/xPath}}{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}>
         <then>
         </then>
         <else>
@@ -8,9 +8,9 @@
     {{/isNewMediator}}
     {{^isNewMediator}}
     {{#selfClosed}}
-    <filter {{#description}}description="{{description}}" {{/description}}{{#regularExpression}}regex="{{regularExpression}}" {{/regularExpression}}{{#source}}source="{{source}}" {{/source}}{{#xPath}}xpath="{{xPath}}"{{/xPath}}{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}/>
+    <filter {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}" {{/description}}{{#regularExpression}}regex="{{regularExpression}}" {{/regularExpression}}{{#source}}source="{{source}}" {{/source}}{{#xPath}}xpath="{{xPath}}"{{/xPath}}{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}/>
     {{/selfClosed}}
     {{^selfClosed}}
-    <filter {{#description}}description="{{description}}" {{/description}}{{#regularExpression}}regex="{{regularExpression}}" {{/regularExpression}}{{#source}}source="{{source}}" {{/source}}{{#xPath}}xpath="{{xPath}}"{{/xPath}}{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}>
+    <filter {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}" {{/description}}{{#regularExpression}}regex="{{regularExpression}}" {{/regularExpression}}{{#source}}source="{{source}}" {{/source}}{{#xPath}}xpath="{{xPath}}"{{/xPath}}{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}>
     {{/selfClosed}}
 {{/isNewMediator}}

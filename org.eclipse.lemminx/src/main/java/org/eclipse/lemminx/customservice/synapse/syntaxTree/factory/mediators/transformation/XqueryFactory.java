@@ -67,6 +67,10 @@ public class XqueryFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Xquery) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Xquery) node).setTraceFilter(traceFilter);
+        }
     }
 
     private XqueryVariable createXqueryVariable(DOMNode element) {

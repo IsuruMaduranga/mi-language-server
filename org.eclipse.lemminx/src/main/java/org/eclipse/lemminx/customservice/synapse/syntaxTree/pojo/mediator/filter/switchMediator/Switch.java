@@ -22,6 +22,7 @@ public class Switch extends Mediator {
     SwitchDefault _default;
     String source;
     String description;
+    String traceFilter;
 
     public Switch() {
         setDisplayName("Switch");
@@ -65,6 +66,16 @@ public class Switch extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }
 

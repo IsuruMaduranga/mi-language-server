@@ -113,6 +113,13 @@ public class RuleMediator {
         if (data.get("targetAction") instanceof String) {
             data.put("targetAction", ((String) data.get("targetAction")).toLowerCase());
         }
+
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
 
     }
@@ -199,6 +206,7 @@ public class RuleMediator {
             }
         }
         data.put("resultsConfiguration", resultsConfiguration);
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

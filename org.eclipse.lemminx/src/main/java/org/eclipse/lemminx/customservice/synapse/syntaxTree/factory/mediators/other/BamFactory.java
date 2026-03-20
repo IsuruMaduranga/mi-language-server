@@ -55,6 +55,10 @@ public class BamFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Bam) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Bam) node).setTraceFilter(traceFilter);
+        }
     }
 
     private BamServerProfile createBamServerProfile(DOMNode node) {

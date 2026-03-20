@@ -151,6 +151,10 @@ public class CallOutFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Callout) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Callout) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

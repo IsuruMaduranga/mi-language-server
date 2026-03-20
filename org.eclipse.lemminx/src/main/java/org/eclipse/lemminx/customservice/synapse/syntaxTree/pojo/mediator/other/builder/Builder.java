@@ -20,6 +20,7 @@ public class Builder extends Mediator {
 
     BuilderMessageBuilder[] messageBuilders;
     String description;
+    String traceFilter;
 
     public Builder() {
         setDisplayName("Builder");
@@ -42,5 +43,15 @@ public class Builder extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

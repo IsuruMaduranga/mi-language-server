@@ -26,6 +26,11 @@ public class BamMediator {
     public static Either<Map<String, Object>, Map<Range, Map<String, Object>>> processData430(Map<String, Object> data,
                                                                                               Bam bam,
                                                                                               List<String> dirtyFields) {
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         return Either.forLeft(data);
 
     }
@@ -37,6 +42,7 @@ public class BamMediator {
         data.put("serverProfileName", node.getServerProfile().getName());
         data.put("streamName", node.getServerProfile().getStreamConfig().getName());
         data.put("streamVersion", node.getServerProfile().getStreamConfig().getVersion());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

@@ -75,6 +75,10 @@ public class RewriteFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Rewrite) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Rewrite) node).setTraceFilter(traceFilter);
+        }
     }
 
     private RewriteRewriterule createRewriteRewriterule(DOMNode element) {

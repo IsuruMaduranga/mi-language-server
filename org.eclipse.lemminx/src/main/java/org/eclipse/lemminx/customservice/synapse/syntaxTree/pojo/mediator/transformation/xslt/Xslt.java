@@ -25,6 +25,7 @@ public class Xslt extends Mediator {
     String key;
     String source;
     String description;
+    String traceFilter;
 
     public Xslt() {
         setDisplayName("XSLT");
@@ -88,5 +89,15 @@ public class Xslt extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

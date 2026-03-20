@@ -22,6 +22,7 @@ public class Xquery extends Mediator {
     String key;
     String target;
     String description;
+    String traceFilter;
 
     public Xquery(){
         setDisplayName("XQuery");
@@ -65,5 +66,15 @@ public class Xquery extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

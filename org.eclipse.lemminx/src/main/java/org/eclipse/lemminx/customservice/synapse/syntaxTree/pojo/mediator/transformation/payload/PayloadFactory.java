@@ -23,6 +23,7 @@ public class PayloadFactory extends Mediator {
     MediaType mediaType;
     TemplateType templateType;
     String description;
+    String traceFilter;
 
     public PayloadFactory() {
 
@@ -77,5 +78,15 @@ public class PayloadFactory extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

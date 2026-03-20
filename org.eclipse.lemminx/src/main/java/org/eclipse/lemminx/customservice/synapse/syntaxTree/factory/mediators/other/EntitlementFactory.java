@@ -111,6 +111,10 @@ public class EntitlementFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((EntitlementService) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((EntitlementService) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

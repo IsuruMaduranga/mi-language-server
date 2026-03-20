@@ -28,6 +28,7 @@ public class Cache extends Mediator {
     CacheScope scope;
     String hashGenerator;
     String description;
+    String traceFilter;
 
     public Cache() {
         setDisplayName("Cache");
@@ -131,5 +132,15 @@ public class Cache extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

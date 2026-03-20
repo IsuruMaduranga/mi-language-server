@@ -132,6 +132,10 @@ public class PayloadFactoryFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((PayloadFactory) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((PayloadFactory) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

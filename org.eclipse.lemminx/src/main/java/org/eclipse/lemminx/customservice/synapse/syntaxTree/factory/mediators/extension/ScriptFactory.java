@@ -77,6 +77,10 @@ public class ScriptFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Script) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Script) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

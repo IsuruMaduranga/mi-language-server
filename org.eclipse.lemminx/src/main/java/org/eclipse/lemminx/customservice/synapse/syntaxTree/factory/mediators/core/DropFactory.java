@@ -41,6 +41,10 @@ public class DropFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Drop) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Drop) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

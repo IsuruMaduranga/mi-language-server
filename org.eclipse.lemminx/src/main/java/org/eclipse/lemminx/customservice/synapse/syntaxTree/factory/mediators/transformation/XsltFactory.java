@@ -108,6 +108,10 @@ public class XsltFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Xslt) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Xslt) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

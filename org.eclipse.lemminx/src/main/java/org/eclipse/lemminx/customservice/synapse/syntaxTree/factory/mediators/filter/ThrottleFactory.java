@@ -83,6 +83,10 @@ public class ThrottleFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Throttle) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Throttle) node).setTraceFilter(traceFilter);
+        }
     }
 
     private ThrottlePolicies createThrottlePolicy(DOMNode node) {

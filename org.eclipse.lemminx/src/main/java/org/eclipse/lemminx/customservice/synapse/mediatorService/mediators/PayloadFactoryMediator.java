@@ -132,6 +132,11 @@ public class PayloadFactoryMediator {
         if (TemplateType.FREE_MARKER.getValue().equals(templateType)) {
             data.put("isFreemarker", true);
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         return Either.forLeft(data);
     }
 
@@ -172,6 +177,7 @@ public class PayloadFactoryMediator {
             data.put(CONTAIN_ARGS, true);
             data.put(Constant.UI_SCHEMA_NAME, "payloadFactory_430");
         }
+        data.put("traceFilter", "enable".equals(payloadFactory.getTraceFilter()));
         return data;
     }
 

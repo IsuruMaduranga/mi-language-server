@@ -1,4 +1,4 @@
-{{#isLatest}}<payloadFactory {{#description}}description="{{description}}"{{/description}} media-type="{{mediaType}}" template-type="{{templateType}}">
+{{#isLatest}}<payloadFactory {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}"{{/description}} media-type="{{mediaType}}" template-type="{{templateType}}">
     {{#isInlined}}
         {{#isFreemarker}}<format><![CDATA[{{{payload}}}]]></format>{{/isFreemarker}}
         {{^isFreemarker}}<format>{{{payload}}}</format>{{/isFreemarker}}
@@ -14,7 +14,7 @@
     </args>
     {{/containArgs}}
 </payloadFactory>{{/isLatest}}
-{{^isLatest}}<payloadFactory {{#description}}description="{{description}}"{{/description}} media-type="{{mediaType}}" template-type="{{templateType}}">
+{{^isLatest}}<payloadFactory {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}"{{/description}} media-type="{{mediaType}}" template-type="{{templateType}}">
     {{#isInlined}}
     {{#isFreemarker}}<format><![CDATA[{{{payload}}}]]></format>{{/isFreemarker}}
     {{^isFreemarker}}<format>{{{payload}}}</format>{{/isFreemarker}}

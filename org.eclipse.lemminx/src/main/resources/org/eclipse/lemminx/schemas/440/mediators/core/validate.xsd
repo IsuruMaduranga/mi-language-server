@@ -69,6 +69,7 @@
             <xs:attribute name="cache-schema" type="xs:boolean" use="optional"/>
             <xs:attribute name="source" type="xs:string" use="optional"/>
             <xs:attribute name="description" type="xs:string" use="optional"/>
+            <xs:attribute name="traceFilter" type="xs:string"/>
 
         </xs:complexType>
     </xs:element>

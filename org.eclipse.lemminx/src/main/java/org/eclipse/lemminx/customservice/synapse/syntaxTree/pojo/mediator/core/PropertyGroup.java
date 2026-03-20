@@ -20,6 +20,7 @@ public class PropertyGroup extends Mediator {
 
     Property[] property;
     String description;
+    String traceFilter;
 
     public PropertyGroup() {
         setDisplayName("Property Group");
@@ -43,5 +44,15 @@ public class PropertyGroup extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

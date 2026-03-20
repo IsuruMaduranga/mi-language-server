@@ -79,6 +79,11 @@ public class RewriteMediator {
 
             data.put("urlRewriteRules", processedRules);
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         return Either.forLeft(data);
 
     }
@@ -117,6 +122,7 @@ public class RewriteMediator {
         }
 
         data.put("urlRewriteRules", urlRewriteRules);
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 }

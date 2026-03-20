@@ -95,6 +95,10 @@ public class EjbFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Ejb) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Ejb) node).setTraceFilter(traceFilter);
+        }
     }
 
     private List<EjbArgsArg> createEjbArgsArg(DOMElement node) {

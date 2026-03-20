@@ -26,6 +26,11 @@ public class LoopbackMediator {
     public static Either<Map<String, Object>, Map<Range, Map<String, Object>>> processData430(Map<String, Object> data,
                                                                                               Loopback loopback,
                                                                                               List<String> dirtyFields) {
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         return Either.forLeft(data);
 
     }
@@ -34,6 +39,7 @@ public class LoopbackMediator {
 
         Map<String, Object> data = new HashMap<>();
         data.put("description", node.getDescription());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 }

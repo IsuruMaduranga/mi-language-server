@@ -22,6 +22,7 @@ public class Class extends Mediator {
     MediatorProperty[] property;
     String name;
     String description;
+    String traceFilter;
 
     public Class() {
         setDisplayName("Class");
@@ -55,5 +56,15 @@ public class Class extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

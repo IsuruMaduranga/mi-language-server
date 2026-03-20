@@ -85,6 +85,10 @@ public class PropertyFactory extends AbstractMediatorFactory {
         if (description != null) {
             property.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            property.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

@@ -32,6 +32,11 @@ public class OauthServiceMediator {
                 data.put("remoteServiceURL", remoteServiceURL + "/");
             }
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         return Either.forLeft(data);
 
     }
@@ -43,6 +48,7 @@ public class OauthServiceMediator {
         data.put("password", node.getPassword());
         data.put("username", node.getUsername());
         data.put("remoteServiceURL", node.getRemoteServiceUrl());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

@@ -86,6 +86,10 @@ public class LogFactory extends AbstractMediatorFactory {
             } else {
                 ((Log) node).setLogFullPayload(false);
             }
+            String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+            if (traceFilter != null) {
+                ((Log) node).setTraceFilter(traceFilter);
+            }
         } catch (IllegalArgumentException e) {
             // ignore
         }

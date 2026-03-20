@@ -53,6 +53,12 @@ public class IterateMediator {
             data.put("attachPath", attachPath.get("value"));
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         if (iterate == null) {
             data.put("isNewMediator", true);
             return Either.forLeft(data);
@@ -126,6 +132,7 @@ public class IterateMediator {
 
         data.put("description", node.getDescription());
         data.put("isSelfClosed", node.isSelfClosed());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

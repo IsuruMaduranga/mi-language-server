@@ -1,4 +1,4 @@
-    <brs:rule description="{{description}}" xmlns:brs="http://wso2.org/carbon/rules">
+    <brs:rule {{#traceFilter}}traceFilter="enable" {{/traceFilter}}description="{{description}}" xmlns:brs="http://wso2.org/carbon/rules">
         <brs:source {{#sourceXPath}}xpath="{{value}}"{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}{{/sourceXPath}}>{{sourceValue}}</brs:source>
         <brs:target action="{{targetAction}}" resultXpath="{{targetResultXPath}}" xpath="{{targetXPath}}"{{#targetNamespaces}} xmlns:{{prefix}}="{{uri}}"{{/targetNamespaces}}>{{targetValue}}</brs:target>
         <brs:ruleSet>

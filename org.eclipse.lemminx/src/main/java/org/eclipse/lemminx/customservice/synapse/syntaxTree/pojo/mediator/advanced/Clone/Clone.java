@@ -23,6 +23,7 @@ public class Clone extends Mediator {
     boolean continueParent;
     boolean sequential;
     String description;
+    String traceFilter;
 
     public Clone() {
         setDisplayName("Clone");
@@ -76,5 +77,15 @@ public class Clone extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

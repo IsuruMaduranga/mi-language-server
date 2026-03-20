@@ -45,6 +45,10 @@ public class FastXSLTFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((FastXSLT) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((FastXSLT) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

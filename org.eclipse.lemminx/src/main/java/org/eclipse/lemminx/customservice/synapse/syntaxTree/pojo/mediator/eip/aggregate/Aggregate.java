@@ -21,6 +21,7 @@ public class Aggregate extends Mediator {
     CorrelateOnOrCompleteConditionOrOnComplete correlateOnOrCompleteConditionOrOnComplete;
     String description;
     String id;
+    String traceFilter;
 
     public Aggregate() {
         setDisplayName("Aggregate");
@@ -54,5 +55,15 @@ public class Aggregate extends Mediator {
     public void setId(String id) {
 
         this.id = id;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

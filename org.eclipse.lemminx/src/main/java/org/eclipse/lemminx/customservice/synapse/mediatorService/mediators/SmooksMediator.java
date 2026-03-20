@@ -36,6 +36,11 @@ public class SmooksMediator {
             data.remove("outputProperty");
             data.remove("outputExpression");
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         return Either.forLeft(data);
 
     }
@@ -71,6 +76,7 @@ public class SmooksMediator {
                 data.put("outputMethod", "Default");
             }
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 }

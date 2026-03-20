@@ -25,6 +25,7 @@ public class Header extends Mediator {
     String description;
     String value;
     String expression;
+    String traceFilter;
 
     public Header() {
         setDisplayName("Header");
@@ -98,5 +99,15 @@ public class Header extends Mediator {
     public void setExpression(String expression) {
 
         this.expression = expression;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

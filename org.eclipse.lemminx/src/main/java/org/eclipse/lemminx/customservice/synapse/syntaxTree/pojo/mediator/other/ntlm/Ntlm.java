@@ -24,6 +24,7 @@ public class Ntlm extends Mediator {
     String password;
     String ntlmVersion;
     String description;
+    String traceFilter;
 
     public Ntlm() {
         setDisplayName("NTLM");
@@ -87,5 +88,15 @@ public class Ntlm extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

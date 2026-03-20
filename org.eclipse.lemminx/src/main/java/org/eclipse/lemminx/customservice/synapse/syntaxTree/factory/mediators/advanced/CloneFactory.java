@@ -82,6 +82,10 @@ public class CloneFactory extends AbstractMediatorFactory {
         if (description != null) {
             clone.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            clone.setTraceFilter(traceFilter);
+        }
     }
 
     private CloneTarget createCloneTarget(DOMElement element) {

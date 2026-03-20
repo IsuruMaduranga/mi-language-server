@@ -22,6 +22,7 @@ public class Smooks extends Mediator {
     SmooksOutput output;
     String configKey;
     String description;
+    String traceFilter;
 
     public Smooks() {
         setDisplayName("Smooks");
@@ -65,5 +66,15 @@ public class Smooks extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

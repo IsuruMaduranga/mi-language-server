@@ -76,6 +76,10 @@ public class DataServiceFactory extends AbstractMediatorFactory {
         if (description != null) {
             dataServiceCall.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            dataServiceCall.setTraceFilter(traceFilter);
+        }
     }
 
     private DataServiceCallSource createDataServiceCallSource(DOMElement element) {

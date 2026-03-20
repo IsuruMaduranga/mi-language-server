@@ -53,6 +53,10 @@ public class OauthServiceFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((OauthService) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((OauthService) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

@@ -22,6 +22,7 @@ public class Rewrite extends Mediator {
     String inProperty;
     String outProperty;
     String description;
+    String traceFilter;
 
     public Rewrite(){
         setDisplayName("Rewrite");
@@ -65,5 +66,15 @@ public class Rewrite extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

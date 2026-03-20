@@ -21,6 +21,7 @@ public class Enrich extends Mediator {
     SourceEnrich source;
     TargetEnrich target;
     String description;
+    String traceFilter;
 
     public Enrich() {
         setDisplayName("Enrich");
@@ -54,5 +55,15 @@ public class Enrich extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

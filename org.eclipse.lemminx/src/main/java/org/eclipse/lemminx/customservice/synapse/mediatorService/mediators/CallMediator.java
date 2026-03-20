@@ -85,6 +85,12 @@ public class CallMediator {
             data.remove("contentType");
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
     }
 
@@ -136,6 +142,7 @@ public class CallMediator {
 
 
         data.put("isCallSelfClosed", node.isSelfClosed());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

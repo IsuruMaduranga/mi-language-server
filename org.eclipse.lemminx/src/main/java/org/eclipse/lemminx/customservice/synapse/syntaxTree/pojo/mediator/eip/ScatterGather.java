@@ -28,6 +28,7 @@ public class ScatterGather extends Mediator {
     String rootElement;
     String description;
     ScatterGatherAggregation scatterGatherAggregation;
+    String traceFilter;
 
     public ScatterGather() {
         setDisplayName("Scatter-Gather");
@@ -116,5 +117,15 @@ public class ScatterGather extends Mediator {
     public void setVariableName(String variableName) {
 
         this.variableName = variableName;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

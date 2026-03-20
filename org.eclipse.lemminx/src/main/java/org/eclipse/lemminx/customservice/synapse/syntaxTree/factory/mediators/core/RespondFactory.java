@@ -42,6 +42,10 @@ public class RespondFactory extends AbstractMediatorFactory {
         if (description != null) {
             respond.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            respond.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

@@ -1,5 +1,5 @@
     {{#isNewMediator}}
-    <aggregate{{#aggregateID}} id="{{aggregateID}}"{{/aggregateID}}{{#description}} description="{{description}}"{{/description}}>
+    <aggregate{{#traceFilter}} traceFilter="enable"{{/traceFilter}}{{#aggregateID}} id="{{aggregateID}}"{{/aggregateID}}{{#description}} description="{{description}}"{{/description}}>
 {{#correlationExpression}}<correlateOn expression="{{value}}" {{#namespaces}}xmlns:{{prefix}}="{{uri}}" {{/namespaces}}/>{{/correlationExpression}}
         <completeCondition{{#completionTimeout}} timeout="{{completionTimeout}}"{{/completionTimeout}}>
             <messageCount {{#completionMax}}max="{{completionMax}}" {{/completionMax}}{{#completionMin}}min="{{completionMin}}" {{/completionMin}}{{#messageCountNamespaces}}xmlns:{{prefix}}="{{uri}}" {{/messageCountNamespaces}}/>
@@ -14,7 +14,7 @@
     {{/isNewMediator}}
     {{^isNewMediator}}
     {{#editAggregate}}
-    <aggregate {{#aggregateID}}id="{{aggregateID}}"{{/aggregateID}}{{#description}} description="{{description}}"{{/description}}>
+    <aggregate {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#aggregateID}}id="{{aggregateID}}"{{/aggregateID}}{{#description}} description="{{description}}"{{/description}}>
     {{/editAggregate}}
     {{#editCorrelateOn}}
     {{#correlationExpression}}<correlateOn expression="{{value}}" {{#namespaces}}xmlns:{{prefix}}="{{uri}}" {{/namespaces}}/>{{/correlationExpression}}

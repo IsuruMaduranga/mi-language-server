@@ -24,6 +24,7 @@ public class Callout extends Mediator {
     boolean initAxis2ClientOptions;
     String endpointKey;
     String description;
+    String traceFilter;
 
     public Callout() {
         setDisplayName("Callout");
@@ -87,5 +88,15 @@ public class Callout extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

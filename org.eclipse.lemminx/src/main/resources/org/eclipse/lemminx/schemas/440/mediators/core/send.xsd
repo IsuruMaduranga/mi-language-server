@@ -35,6 +35,7 @@
             <xs:attribute name="receive" type="xs:string" use="optional"/>
             <xs:attribute name="buildmessage" type="xs:boolean" use="optional"/>
             <xs:attribute name="description" type="xs:string" use="optional"/>
+            <xs:attribute name="traceFilter" type="xs:string"/>
         </xs:complexType>
     </xs:element>
 

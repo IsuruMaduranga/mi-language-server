@@ -70,6 +70,12 @@ public class HeaderMediator {
             data.remove("valueLiteral");
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
     }
 
@@ -111,6 +117,7 @@ public class HeaderMediator {
         }
 
         data.put("scope", node.getScope().getValue());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

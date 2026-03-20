@@ -42,6 +42,10 @@ public class LoopbackFactory extends AbstractMediatorFactory {
         if (description != null) {
             loopback.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            loopback.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

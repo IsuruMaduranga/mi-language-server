@@ -37,6 +37,11 @@ public class VariableMediator {
         } else if (variableValue != null) {
             data.put("value", variableValue.get("value"));
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
 
         return Either.forLeft(data);
     }
@@ -65,6 +70,7 @@ public class VariableMediator {
             variableValue.put("namespaces", MediatorUtils.transformNamespaces(variable.getNamespaces()));
         }
         data.put("variableValue", variableValue);
+        data.put("traceFilter", "enable".equals(variable.getTraceFilter()));
         return data;
     }
 }

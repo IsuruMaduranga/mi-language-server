@@ -65,6 +65,10 @@ public class VariableFactory extends AbstractMediatorFactory {
         if (description != null) {
             variable.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            variable.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

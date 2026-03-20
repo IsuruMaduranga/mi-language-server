@@ -63,6 +63,10 @@ public class ClassFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Class) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Class) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

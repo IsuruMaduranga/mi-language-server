@@ -73,6 +73,12 @@ public class LogMediator {
             data.put("selfClosed", true);
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
     }
 
@@ -131,6 +137,7 @@ public class LogMediator {
             }
             data.put("properties", properties);
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 }

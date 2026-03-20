@@ -82,6 +82,10 @@ public class RuleFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Rule) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Rule) node).setTraceFilter(traceFilter);
+        }
     }
 
     private RuleSource createRuleSource(DOMNode node) {

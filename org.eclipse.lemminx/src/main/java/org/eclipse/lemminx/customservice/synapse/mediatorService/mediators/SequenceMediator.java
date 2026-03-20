@@ -36,6 +36,11 @@ public class SequenceMediator {
                 referringSequence.put("value", referringSequence.get("value"));
             }
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
 
         return Either.forLeft(data);
 
@@ -56,6 +61,7 @@ public class SequenceMediator {
         referringSequence.put("namespaces", MediatorUtils.transformNamespaces(node.getNamespaces()));
         data.put("description", node.getDescription());
         data.put("referringSequence", referringSequence);
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

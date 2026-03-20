@@ -19,6 +19,7 @@ import org.eclipse.lemminx.customservice.synapse.syntaxTree.pojo.mediator.Mediat
 public class Drop extends Mediator {
 
     String description;
+    String traceFilter;
 
     public Drop() {
         setDisplayName("Drop");
@@ -32,5 +33,15 @@ public class Drop extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

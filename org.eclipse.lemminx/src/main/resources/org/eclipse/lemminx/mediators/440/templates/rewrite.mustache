@@ -1,4 +1,4 @@
-    <rewrite description="{{description}}" inProperty="{{inProperty}}" outProperty="{{outProperty}}" >
+    <rewrite {{#traceFilter}}traceFilter="enable" {{/traceFilter}}description="{{description}}" inProperty="{{inProperty}}" outProperty="{{outProperty}}" >
     {{#urlRewriteRules}}
         <rewriterule>
             {{#condition}}

@@ -1,8 +1,8 @@
   {{^sourceOrTargetOrEndpoint}}
-  <call {{#enableBlockingCalls}}blocking="{{enableBlockingCalls}}" {{^initAxis2ClientOptions}}initAxis2ClientOptions="false" {{/initAxis2ClientOptions}}{{/enableBlockingCalls}}{{#description}}description="{{description}}" {{/description}}/>
+  <call {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#enableBlockingCalls}}blocking="{{enableBlockingCalls}}" {{^initAxis2ClientOptions}}initAxis2ClientOptions="false" {{/initAxis2ClientOptions}}{{/enableBlockingCalls}}{{#description}}description="{{description}}" {{/description}}/>
   {{/sourceOrTargetOrEndpoint}}
   {{#sourceOrTargetOrEndpoint}}
-  <call {{#enableBlockingCalls}}blocking="{{enableBlockingCalls}}" {{^initAxis2ClientOptions}}initAxis2ClientOptions="false" {{/initAxis2ClientOptions}} {{/enableBlockingCalls}}{{#description}}description="{{description}}" {{/description}}>
+  <call {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#enableBlockingCalls}}blocking="{{enableBlockingCalls}}" {{^initAxis2ClientOptions}}initAxis2ClientOptions="false" {{/initAxis2ClientOptions}} {{/enableBlockingCalls}}{{#description}}description="{{description}}" {{/description}}>
   {{#registryOrXpathEndpoint}}  <endpoint {{#endpointXpath}}key-expression="{{value}}" {{#namespaces}}xmlns:{{prefix}}="{{uri}}" {{/namespaces}}{{/endpointXpath}}{{#endpointRegistryKey}}key="{{endpointRegistryKey}}" {{/endpointRegistryKey}}/>{{/registryOrXpathEndpoint}}
   {{^registryOrXpathEndpoint}}{{{inlineEndpoint}}}{{/registryOrXpathEndpoint}}
   {{#bodySource}}

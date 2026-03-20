@@ -71,6 +71,10 @@ public class HeaderFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Header) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Header) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

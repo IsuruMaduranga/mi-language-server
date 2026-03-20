@@ -62,6 +62,10 @@ public class JsonTransformFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Jsontransform) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Jsontransform) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

@@ -1,5 +1,5 @@
     {{#newMediator}}
-        <throttle description="{{description}}" id="{{groupId}}" {{#onAcceptBranchsequenceKey}}onAccept="{{onAcceptBranchsequenceKey}}"{{/onAcceptBranchsequenceKey}} {{#onRejectBranchsequenceKey}}onReject="{{onRejectBranchsequenceKey}}"{{/onRejectBranchsequenceKey}} >
+        <throttle {{#traceFilter}}traceFilter="enable" {{/traceFilter}}description="{{description}}" id="{{groupId}}" {{#onAcceptBranchsequenceKey}}onAccept="{{onAcceptBranchsequenceKey}}"{{/onAcceptBranchsequenceKey}} {{#onRejectBranchsequenceKey}}onReject="{{onRejectBranchsequenceKey}}"{{/onRejectBranchsequenceKey}} >
             {{#policyKey}}<policy key="{{policyKey}}"/>{{/policyKey}}
             {{#hasPolicyEntries}}
             <policy>
@@ -43,10 +43,10 @@
     {{^newMediator}}
         {{#editThrottle}}
             {{#selfClosed}}
-                <throttle description="{{description}}" id="{{groupId}}" {{#onAcceptBranchsequenceKey}}onAccept="{{onAcceptBranchsequenceKey}}"{{/onAcceptBranchsequenceKey}} {{#onRejectBranchsequenceKey}}onReject="{{onRejectBranchsequenceKey}}"{{/onRejectBranchsequenceKey}} />
+                <throttle {{#traceFilter}}traceFilter="enable" {{/traceFilter}}description="{{description}}" id="{{groupId}}" {{#onAcceptBranchsequenceKey}}onAccept="{{onAcceptBranchsequenceKey}}"{{/onAcceptBranchsequenceKey}} {{#onRejectBranchsequenceKey}}onReject="{{onRejectBranchsequenceKey}}"{{/onRejectBranchsequenceKey}} />
             {{/selfClosed}}
             {{^selfClosed}}
-                <throttle description="{{description}}" id="{{groupId}}" {{#onAcceptBranchsequenceKey}}onAccept="{{onAcceptBranchsequenceKey}}"{{/onAcceptBranchsequenceKey}} {{#onRejectBranchsequenceKey}}onReject="{{onRejectBranchsequenceKey}}"{{/onRejectBranchsequenceKey}} >
+                <throttle {{#traceFilter}}traceFilter="enable" {{/traceFilter}}description="{{description}}" id="{{groupId}}" {{#onAcceptBranchsequenceKey}}onAccept="{{onAcceptBranchsequenceKey}}"{{/onAcceptBranchsequenceKey}} {{#onRejectBranchsequenceKey}}onReject="{{onRejectBranchsequenceKey}}"{{/onRejectBranchsequenceKey}} >
             {{/selfClosed}}
             {{/editThrottle}}
         {{#editPolicy}}

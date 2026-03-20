@@ -61,6 +61,7 @@
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="traceFilter" type="xs:string"/>
         </xs:complexType>
     </xs:element>
 

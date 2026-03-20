@@ -97,6 +97,12 @@ public class ThrottleMediator {
             data.remove("onRejectBranchsequenceKey");
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         if (throttle != null) {
             return Either.forRight(processForEdit(data, throttle, dirtyFields));
         }
@@ -239,6 +245,7 @@ public class ThrottleMediator {
             data.put("policyType", "INLINE");
             data.put("policyEntries", new ArrayList<>());
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

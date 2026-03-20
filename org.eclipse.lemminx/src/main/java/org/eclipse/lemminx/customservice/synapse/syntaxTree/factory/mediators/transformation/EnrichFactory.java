@@ -62,6 +62,10 @@ public class EnrichFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Enrich) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Enrich) node).setTraceFilter(traceFilter);
+        }
     }
 
     private SourceEnrich createSourceEnrich(DOMNode element) {

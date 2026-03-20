@@ -20,6 +20,7 @@ public class Transaction extends Mediator {
 
     TransactionAction action;
     String description;
+    String traceFilter;
 
     public Transaction() {
         setDisplayName("Transaction");
@@ -43,5 +44,15 @@ public class Transaction extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }
