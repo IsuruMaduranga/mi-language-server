@@ -710,7 +710,9 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     @Override
     public CompletableFuture<String> loadDependentResources() {
 
-        return CompletableFuture.supplyAsync(() -> resourceFinder.loadDependentResources(projectUri));
+        String result = resourceFinder.loadDependentResources(projectUri);
+        updateConnectors();
+        return CompletableFuture.supplyAsync(() -> result);
     }
 
     @Override
