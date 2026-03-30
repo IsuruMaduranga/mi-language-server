@@ -31,8 +31,8 @@
             <xs:sequence>
                 <xs:any minOccurs="0" maxOccurs="1" processContents="skip"/>
             </xs:sequence>
-            <xs:attribute name="type" default="STRING" use="optional"/>
-            <xs:attribute name="errorMessage" default="STRING" use="optional"/>
+            <xs:attribute name="type" use="required"/>
+            <xs:attribute name="errorMessage" use="required"/>
             <xs:attribute name="description" type="xs:string" use="optional"/>
         </xs:complexType>
     </xs:element>

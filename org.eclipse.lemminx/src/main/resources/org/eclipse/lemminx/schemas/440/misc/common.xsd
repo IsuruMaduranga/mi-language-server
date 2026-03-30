@@ -126,6 +126,21 @@
         </xs:complexContent>
     </xs:complexType>
 
+    <xs:simpleType name="integerOrExpression">
+        <xs:annotation>
+            <xs:documentation source="description">
+                Accepts either an integer value or a Synapse expression (${...} or {${...}}).
+            </xs:documentation>
+        </xs:annotation>
+        <xs:union memberTypes="xs:integer">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:pattern value="\$\{{1}\{0,1}.*\}{1}\}{0,1}"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:union>
+    </xs:simpleType>
+
     <xs:simpleType name="enableDisable">
         <xs:annotation>
             <xs:documentation source="description">
