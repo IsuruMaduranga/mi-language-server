@@ -39,10 +39,18 @@ public class ExpressionValidator {
         SyntaxErrorListener errorListener = new SyntaxErrorListener();
         parser.addErrorListener(errorListener);
 
-        parser.expression();
+        ExpressionParser.ExpressionContext tree = parser.expression();
 
         if (errorListener.hasErrors()) {
             for (ExpressionError err : errorListener.getErrors()) {
+                errors.add(new ExpressionError(expression, err.getLine(), err.getCharPositionInLine(),
+                        err.getMessage(), err.getOffendingSymbol(), err.getException()));
+            }
+        } else {
+            // Run semantic validation when syntax is correct
+            SemanticExpressionValidator semanticValidator = new SemanticExpressionValidator();
+            semanticValidator.visit(tree);
+            for (ExpressionError err : semanticValidator.getErrors()) {
                 errors.add(new ExpressionError(expression, err.getLine(), err.getCharPositionInLine(),
                         err.getMessage(), err.getOffendingSymbol(), err.getException()));
             }
