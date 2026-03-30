@@ -17,6 +17,7 @@ package org.eclipse.lemminx.customservice.synapse.expression;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.eclipse.lemminx.customservice.synapse.expression.pojo.ExpressionError;
+import org.eclipse.lemminx.util.synapse_expression.ExpressionLexer;
 import org.eclipse.lemminx.util.synapse_expression.ExpressionParser;
 import org.eclipse.lemminx.util.synapse_expression.ExpressionParserBaseVisitor;
 
@@ -146,6 +147,104 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
                         message, argToken, null));
             }
         }
+    }
+
+    @Override
+    public Void visitFilterExpression(ExpressionParser.FilterExpressionContext ctx) {
+        List<ExpressionParser.FilterComponentContext> components = ctx.filterComponent();
+        if (components == null || components.size() < 2) {
+            return visitChildren(ctx);
+        }
+
+        int lastOperatorIndex = -1;
+        boolean lastWasComparison = false;
+        boolean lastWasLogical = false;
+
+        for (int i = 0; i < components.size(); i++) {
+            ExpressionParser.FilterComponentContext comp = components.get(i);
+            int opType = getFilterOperatorType(comp);
+
+            if (opType == 1) { // comparison operator
+                if (lastWasComparison && lastOperatorIndex == i - 1) {
+                    addFilterWarning(comp,
+                            "Possible incomplete filter expression: consecutive comparison operators without "
+                                    + "an operand between them.");
+                }
+                lastWasComparison = true;
+                lastWasLogical = false;
+                lastOperatorIndex = i;
+            } else if (opType == 2) { // logical binary operator (AND, OR)
+                if (lastWasComparison && lastOperatorIndex == i - 1) {
+                    addFilterWarning(comp,
+                            "Possible incomplete filter expression: logical operator immediately after "
+                                    + "comparison operator. Missing operand?");
+                }
+                if (lastWasLogical && lastOperatorIndex == i - 1) {
+                    addFilterWarning(comp,
+                            "Possible incomplete filter expression: consecutive logical operators without "
+                                    + "an operand between them.");
+                }
+                lastWasComparison = false;
+                lastWasLogical = true;
+                lastOperatorIndex = i;
+            } else {
+                lastWasComparison = false;
+                lastWasLogical = false;
+            }
+        }
+
+        // Check for trailing operator
+        if (lastOperatorIndex == components.size() - 1) {
+            ExpressionParser.FilterComponentContext lastComp = components.get(lastOperatorIndex);
+            if (lastWasComparison) {
+                addFilterWarning(lastComp,
+                        "Possible incomplete filter expression: ends with comparison operator without "
+                                + "a right-hand operand.");
+            } else if (lastWasLogical) {
+                addFilterWarning(lastComp,
+                        "Possible incomplete filter expression: ends with logical operator without "
+                                + "a right-hand operand.");
+            }
+        }
+
+        return visitChildren(ctx);
+    }
+
+    /**
+     * Returns the operator type for a filter component:
+     * 0 = not an operator, 1 = comparison, 2 = logical binary (AND/OR)
+     */
+    private int getFilterOperatorType(ExpressionParser.FilterComponentContext comp) {
+        ExpressionParser.StringOrOperatorContext soo = comp.stringOrOperator();
+        if (soo == null) {
+            return 0;
+        }
+        if (soo.getChildCount() != 1 || !(soo.getChild(0) instanceof TerminalNode)) {
+            return 0;
+        }
+        int tokenType = ((TerminalNode) soo.getChild(0)).getSymbol().getType();
+        switch (tokenType) {
+            case ExpressionLexer.GT:
+            case ExpressionLexer.LT:
+            case ExpressionLexer.GTE:
+            case ExpressionLexer.LTE:
+            case ExpressionLexer.EQ:
+            case ExpressionLexer.NEQ:
+                return 1;
+            case ExpressionLexer.AND:
+            case ExpressionLexer.OR:
+                return 2;
+            default:
+                return 0;
+        }
+    }
+
+    private void addFilterWarning(ExpressionParser.FilterComponentContext comp, String message) {
+        Token token = comp.getStart();
+        ExpressionError error = new ExpressionError(token.getLine(), token.getCharPositionInLine(),
+                message, token, null);
+        error.setWarning(true);
+        errors.add(error);
     }
 
     /**

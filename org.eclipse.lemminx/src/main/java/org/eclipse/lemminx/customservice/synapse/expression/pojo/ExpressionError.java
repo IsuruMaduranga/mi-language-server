@@ -26,6 +26,7 @@ public class ExpressionError {
     private final String message;
     private final Object offendingSymbol;
     private final RecognitionException exception;
+    private boolean warning;
 
     public ExpressionError(String expression, int line, int charPositionInLine, String message, Object offendingSymbol,
                            RecognitionException exception) {
@@ -36,6 +37,7 @@ public class ExpressionError {
         this.message = message;
         this.offendingSymbol = offendingSymbol;
         this.exception = exception;
+        this.warning = false;
     }
 
     public ExpressionError(int line, int charPositionInLine, String message, Object offendingSymbol,
@@ -48,6 +50,7 @@ public class ExpressionError {
 
         this(expression, error.getLine(), error.getCharPositionInLine(),
                 error.getMessage(), error.getOffendingSymbol(), error.getException());
+        this.warning = error.isWarning();
     }
 
     public int getLine() {
@@ -78,6 +81,16 @@ public class ExpressionError {
     public String getExpression() {
 
         return expression;
+    }
+
+    public boolean isWarning() {
+
+        return warning;
+    }
+
+    public void setWarning(boolean warning) {
+
+        this.warning = warning;
     }
 
     public String getFullMessage() {

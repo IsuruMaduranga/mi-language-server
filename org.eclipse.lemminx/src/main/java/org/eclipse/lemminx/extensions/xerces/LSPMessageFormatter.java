@@ -24,11 +24,7 @@ import static org.eclipse.lemminx.dom.parser.Constants._SIQ;
 import static org.eclipse.lemminx.dom.parser.Constants._SQO;
 import static org.eclipse.lemminx.utils.StringUtils.getString;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.regex.Matcher;
@@ -147,55 +143,25 @@ public class LSPMessageFormatter implements MessageFormatter {
 	}
 
 	private static String reformatElementNames(String names) {
-		// First pass: extract all element names
-		List<String> elementNames = new ArrayList<>();
+		StringBuilder result = new StringBuilder();
+
 		MultiLineStream stream = new MultiLineStream(names, 0);
 
-		while (!stream.eos()) {
-			stream.advance(1); // Consume ' ' or '{' if first item
+		while (!stream.eos()) { // }
+			stream.advance(1);// Consume ' ' or '{' if first item
 			boolean hasNamespace = stream.peekChar() == _DQO;
 			if (hasNamespace) {
 				stream.advance(1); // Consume "
 				stream.advanceUntilAnyOfChars(SEPARATORS); // " | " | '
-				stream.advance(2); // Consume quotation and ':'
+				stream.advance(2); // Consume quotation and':'
 			}
-			StringBuilder nameBuilder = new StringBuilder();
+			result.append(" - ");
 			while (stream.peekChar() != _CCB && stream.peekChar() != _CMA) { // } | ,
-				nameBuilder.append((char) stream.peekChar());
+				result.append((char) stream.peekChar());
 				stream.advance(1);
 			}
-			String name = nameBuilder.toString().trim();
-			if (!name.isEmpty()) {
-				elementNames.add(name);
-			}
+			result.append("\n");
 			stream.advance(1);
-		}
-
-		// Second pass: separate core mediators from connector operations (name contains '.')
-		List<String> coreMediators = new ArrayList<>();
-		Map<String, List<String>> connectorGroups = new LinkedHashMap<>();
-
-		for (String name : elementNames) {
-			int dotIndex = name.indexOf('.');
-			if (dotIndex > 0) {
-				String prefix = name.substring(0, dotIndex);
-				String operation = name.substring(dotIndex + 1);
-				connectorGroups.computeIfAbsent(prefix, k -> new ArrayList<>()).add(operation);
-			} else {
-				coreMediators.add(name);
-			}
-		}
-
-		// Build result: core mediators individually, then grouped connector operations
-		StringBuilder result = new StringBuilder();
-		for (String mediator : coreMediators) {
-			result.append(" - ").append(mediator).append("\n");
-		}
-		for (Map.Entry<String, List<String>> entry : connectorGroups.entrySet()) {
-			List<String> ops = entry.getValue();
-			result.append(" - ").append(entry.getKey()).append(".* (")
-					.append(ops.size()).append(" operation")
-					.append(ops.size() != 1 ? "s" : "").append(")\n");
 		}
 		return result.toString();
 	}
@@ -253,8 +219,6 @@ public class LSPMessageFormatter implements MessageFormatter {
 	 * @param arguments
 	 * @return
 	 */
-	private static final String SYNAPSE_NAMESPACE = "http://ws.apache.org/ns/synapse";
-
 	private static Object[] cvc_2_4_a_solution(Object[] arguments) {
 		Matcher m = getNamespaceMatcher(getString(arguments[0]));
 		String schema = null;
@@ -263,9 +227,7 @@ public class LSPMessageFormatter implements MessageFormatter {
 
 		if (m.matches()) {
 			name = m.group(2);
-			String namespace = m.group(1);
-			// Strip Synapse namespace noise — it provides no useful info to the consumer
-			schema = SYNAPSE_NAMESPACE.equals(namespace) ? "" : "{" + namespace + "}";
+			schema = "{" + m.group(1) + "}";
 			validNames = reformatElementNames(getString(arguments[1]));
 		} else { // No namespace, so just element name
 			name = getString(arguments[0]);
