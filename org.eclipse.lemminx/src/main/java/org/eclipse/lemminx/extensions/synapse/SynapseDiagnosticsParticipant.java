@@ -14,6 +14,10 @@
 
 package org.eclipse.lemminx.extensions.synapse;
 
+import org.eclipse.lemminx.customservice.synapse.resourceFinder.NewProjectResourceFinder;
+import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.RegistryResource;
+import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.Resource;
+import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.ResourceResponse;
 import org.eclipse.lemminx.dom.DOMDocument;
 import org.eclipse.lemminx.dom.DOMElement;
 import org.eclipse.lemminx.dom.DOMNode;
@@ -27,11 +31,17 @@ import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 
 import org.eclipse.lemminx.dom.DOMAttr;
 
+import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,8 +51,12 @@ import java.util.regex.Pattern;
  */
 public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
+    private static final Logger LOGGER = Logger.getLogger(SynapseDiagnosticsParticipant.class.getName());
+
     private static final String SYNAPSE_NS = "http://ws.apache.org/ns/synapse";
     private static final String SOURCE = "synapse";
+    private static final String SRC_MAIN_WSO2MI = "src" + java.io.File.separator + "main"
+            + java.io.File.separator + "wso2mi";
 
     private static final Set<String> SYNAPSE_ROOT_ELEMENTS = new HashSet<>(Arrays.asList(
             "api", "proxy", "endpoint", "sequence", "inboundEndpoint", "template",
@@ -73,6 +87,20 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
      */
     private static final Pattern EXPRESSION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
 
+    /**
+     * Elements whose 'key' attribute references a named artifact (endpoint, sequence, etc.).
+     */
+    private static final Set<String> KEY_REF_ELEMENTS = new HashSet<>(Arrays.asList(
+            "endpoint", "sequence"
+    ));
+
+    /**
+     * Elements whose 'onError' attribute references a named sequence.
+     */
+    private static final Set<String> ON_ERROR_ELEMENTS = new HashSet<>(Arrays.asList(
+            "api", "proxy", "sequence", "inboundEndpoint", "resource"
+    ));
+
     @Override
     public void doDiagnostics(DOMDocument xmlDocument, List<Diagnostic> diagnostics,
                               XMLValidationSettings validationSettings, CancelChecker cancelChecker) {
@@ -88,7 +116,8 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         if (SYNAPSE_NS.equals(namespace)) {
             // Valid Synapse file — run all validations
             Set<String> definedVariables = new HashSet<>();
-            validateElement(root, diagnostics, xmlDocument, definedVariables);
+            Set<String> knownArtifacts = buildArtifactNameIndex(xmlDocument);
+            validateElement(root, diagnostics, xmlDocument, definedVariables, knownArtifacts);
         } else if (rootName != null && SYNAPSE_ROOT_ELEMENTS.contains(rootName) && namespace == null) {
             // Looks like a Synapse file but missing namespace (Issue 13)
             Range range = XMLPositionUtility.selectStartTagName(root);
@@ -103,7 +132,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     private void validateElement(DOMNode node, List<Diagnostic> diagnostics, DOMDocument document,
-                                Set<String> definedVariables) {
+                                Set<String> definedVariables, Set<String> knownArtifacts) {
         if (!(node instanceof DOMElement)) {
             return;
         }
@@ -118,6 +147,11 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
         // Validate variable references in expression attributes
         validateVariableReferences(element, diagnostics, document, definedVariables);
+
+        // Cross-file reference validation
+        if (knownArtifacts != null) {
+            validateCrossReferences(element, diagnostics, knownArtifacts);
+        }
 
         switch (name) {
             case "resource":
@@ -155,7 +189,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         List<DOMNode> children = element.getChildren();
         if (children != null) {
             for (DOMNode child : children) {
-                validateElement(child, diagnostics, document, definedVariables);
+                validateElement(child, diagnostics, document, definedVariables, knownArtifacts);
             }
         }
     }
@@ -477,6 +511,193 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 }
             }
         }
+    }
+
+    /**
+     * Issue 6: Validate cross-file references (key, target, onError attributes).
+     */
+    private void validateCrossReferences(DOMElement element, List<Diagnostic> diagnostics,
+                                         Set<String> knownArtifacts) {
+        String name = element.getLocalName();
+        if (name == null) {
+            return;
+        }
+
+        // Check 'key' attribute on endpoint and sequence elements (inside call/send mediators)
+        if (KEY_REF_ELEMENTS.contains(name)) {
+            String key = element.getAttribute("key");
+            if (key != null && !key.isEmpty() && !isExpression(key) && !knownArtifacts.contains(key)) {
+                DOMAttr keyAttr = element.getAttributeNode("key");
+                if (keyAttr != null) {
+                    Range range = XMLPositionUtility.selectAttributeValue(keyAttr);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Referenced " + name + " '" + key + "' not found in the project. " +
+                                        "Ensure the artifact exists or check for typos.",
+                                DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                    }
+                }
+            }
+        }
+
+        // Check 'target' attribute on call-template
+        if ("call-template".equals(name)) {
+            String target = element.getAttribute("target");
+            if (target != null && !target.isEmpty() && !isExpression(target)
+                    && !knownArtifacts.contains(target)) {
+                DOMAttr targetAttr = element.getAttributeNode("target");
+                if (targetAttr != null) {
+                    Range range = XMLPositionUtility.selectAttributeValue(targetAttr);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Referenced template '" + target + "' not found in the project. " +
+                                        "Ensure the template exists or check for typos.",
+                                DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                    }
+                }
+            }
+        }
+
+        // Check 'onError' attribute
+        if (ON_ERROR_ELEMENTS.contains(name)) {
+            String onError = element.getAttribute("onError");
+            if (onError != null && !onError.isEmpty() && !isExpression(onError)
+                    && !knownArtifacts.contains(onError)) {
+                DOMAttr onErrorAttr = element.getAttributeNode("onError");
+                if (onErrorAttr != null) {
+                    Range range = XMLPositionUtility.selectAttributeValue(onErrorAttr);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Referenced error sequence '" + onError + "' not found in the project. " +
+                                        "Ensure the sequence exists or check for typos.",
+                                DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                    }
+                }
+            }
+        }
+
+        // Check 'key' attribute on xslt and xquery mediators (registry references)
+        if ("xslt".equals(name) || "xquery".equals(name)) {
+            validateRegistryKeyRef(element, "key", name + " stylesheet", diagnostics, knownArtifacts);
+        }
+
+        // Check datamapper config, inputSchema, outputSchema attributes
+        if ("datamapper".equals(name)) {
+            validateRegistryKeyRef(element, "config", "datamapper configuration", diagnostics, knownArtifacts);
+            validateRegistryKeyRef(element, "inputSchema", "datamapper input schema", diagnostics, knownArtifacts);
+            validateRegistryKeyRef(element, "outputSchema", "datamapper output schema", diagnostics, knownArtifacts);
+            validateRegistryKeyRef(element, "xsltStyleSheet", "datamapper XSLT stylesheet", diagnostics,
+                    knownArtifacts);
+        }
+    }
+
+    /**
+     * Validates a registry key reference attribute against the known artifacts index.
+     */
+    private void validateRegistryKeyRef(DOMElement element, String attrName, String description,
+                                        List<Diagnostic> diagnostics, Set<String> knownArtifacts) {
+        String value = element.getAttribute(attrName);
+        if (value == null || value.isEmpty() || isExpression(value)) {
+            return;
+        }
+        if (!knownArtifacts.contains(value)) {
+            DOMAttr attr = element.getAttributeNode(attrName);
+            if (attr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(attr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Referenced " + description + " '" + value + "' not found in the project. " +
+                                    "Ensure the resource exists or check for typos.",
+                            DiagnosticSeverity.Warning, "UnresolvedRegistryReference");
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks if a string is a Synapse expression (${...} or {${...}}).
+     */
+    private boolean isExpression(String value) {
+        return (value.startsWith("${") && value.endsWith("}"))
+                || (value.startsWith("{${") && value.endsWith("}}"));
+    }
+
+    /**
+     * Builds a set of all known artifact names and registry keys in the project.
+     * Returns null if the project path cannot be determined.
+     */
+    private Set<String> buildArtifactNameIndex(DOMDocument document) {
+        String projectPath = deriveProjectPath(document);
+        if (projectPath == null) {
+            return null;
+        }
+
+        Set<String> artifactNames = new HashSet<>();
+        try {
+            NewProjectResourceFinder resourceFinder = new NewProjectResourceFinder();
+            Map<String, ResourceResponse> allResources = resourceFinder.findAllResources(projectPath);
+
+            for (ResourceResponse response : allResources.values()) {
+                if (response.getResources() != null) {
+                    for (Resource resource : response.getResources()) {
+                        if (resource.getName() != null) {
+                            artifactNames.add(resource.getName());
+                        }
+                    }
+                }
+                // Also collect registry keys for xslt/xquery/datamapper references
+                if (response.getRegistryResources() != null) {
+                    for (Resource resource : response.getRegistryResources()) {
+                        if (resource instanceof RegistryResource) {
+                            String regKey = ((RegistryResource) resource).getRegistryKey();
+                            if (regKey != null) {
+                                artifactNames.add(regKey);
+                                // Normalize: add both gov:path and gov:/path variants
+                                if (regKey.contains(":") && !regKey.contains(":/")) {
+                                    String prefix = regKey.substring(0, regKey.indexOf(':') + 1);
+                                    String path = regKey.substring(regKey.indexOf(':') + 1);
+                                    artifactNames.add(prefix + "/" + path);
+                                } else if (regKey.contains(":/")) {
+                                    String normalized = regKey.replace(":/", ":");
+                                    artifactNames.add(normalized);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to build artifact name index for cross-reference validation", e);
+            return null;
+        }
+        return artifactNames;
+    }
+
+    /**
+     * Derives the project root path from the document URI by looking for the
+     * src/main/wso2mi path segment.
+     */
+    private String deriveProjectPath(DOMDocument document) {
+        String docUri = document.getDocumentURI();
+        if (docUri == null) {
+            return null;
+        }
+        try {
+            Path filePath;
+            if (docUri.startsWith("file:")) {
+                filePath = Paths.get(new URI(docUri));
+            } else {
+                filePath = Paths.get(docUri);
+            }
+            String pathStr = filePath.toString();
+            int idx = pathStr.indexOf(SRC_MAIN_WSO2MI);
+            if (idx > 0) {
+                return pathStr.substring(0, idx - 1); // -1 to remove trailing separator
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.FINE, "Could not derive project path from document URI: " + docUri, e);
+        }
+        return null;
     }
 
     private boolean hasChildElements(DOMElement element) {
