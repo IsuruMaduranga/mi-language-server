@@ -135,7 +135,8 @@
         <xs:union memberTypes="xs:integer">
             <xs:simpleType>
                 <xs:restriction base="xs:string">
-                    <xs:pattern value="\$\{{1}\{0,1}.*\}{1}\}{0,1}"/>
+                    <xs:pattern value="\$\{.+\}"/>
+                    <xs:pattern value="\{\$\{.+\}\}"/>
                 </xs:restriction>
             </xs:simpleType>
         </xs:union>

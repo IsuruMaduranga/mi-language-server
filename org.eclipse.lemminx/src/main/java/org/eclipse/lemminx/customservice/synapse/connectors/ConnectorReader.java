@@ -218,13 +218,16 @@ public class ConnectorReader {
         List<String> dependencies = getDependencies(componentElement);
         readDependencies(connector, dependencies);
         readUISchema(connector);
-        updateRequiredFlags(connector);
         readOutputSchema(connector);
     }
 
     private void readUISchema(Connector connector) {
 
         addUISchemasFromConnector(connector);
+        // Extract required flags from shipped UI schemas BEFORE generating schemas for
+        // actions that lack them. Auto-generated schemas always set required=false, so
+        // reading them back would be a no-op (updateRequiredFlags only sets true).
+        updateRequiredFlags(connector);
         generateUISchemasIfNeeded(connector);
     }
 

@@ -215,6 +215,16 @@ public class FunctionRegistry {
                 }
             }
 
+            // Fix 'boolean' — functions.json is missing the "signature" field, so it gets
+            // loaded with arity 0. The actual function accepts 1 argument: boolean(value:any).
+            // Remove this override once functions.json is updated with the signature field.
+            List<FunctionSignature> boolSigs = functionMap.get("boolean");
+            if (boolSigs != null && boolSigs.size() == 1 && boolSigs.get(0).getArity() == 0) {
+                boolSigs.clear();
+                boolSigs.add(new FunctionSignature("boolean", List.of("any"),
+                        "Converts the value to a boolean"));
+            }
+
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error loading functions.json", e);
         }

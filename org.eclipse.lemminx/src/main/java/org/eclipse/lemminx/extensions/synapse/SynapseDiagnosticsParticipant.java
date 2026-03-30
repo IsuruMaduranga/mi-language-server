@@ -34,12 +34,12 @@ import org.eclipse.lemminx.dom.DOMAttr;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -55,8 +55,14 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
     private static final String SYNAPSE_NS = "http://ws.apache.org/ns/synapse";
     private static final String SOURCE = "synapse";
+    // Use File.separator for the OS-native path (used after converting URI to Path)
     private static final String SRC_MAIN_WSO2MI = "src" + java.io.File.separator + "main"
             + java.io.File.separator + "wso2mi";
+    // Also keep a forward-slash variant for file URIs that may not be converted to Path
+    private static final String SRC_MAIN_WSO2MI_URI = "src/main/wso2mi";
+
+    private static final long ARTIFACT_CACHE_TTL_MS = 5000; // 5 seconds
+    private final Map<String, CachedArtifactIndex> artifactIndexCache = new ConcurrentHashMap<>();
 
     private static final Set<String> SYNAPSE_ROOT_ELEMENTS = new HashSet<>(Arrays.asList(
             "api", "proxy", "endpoint", "sequence", "inboundEndpoint", "template",
@@ -84,8 +90,13 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
     /**
      * Regex to extract ${...} expressions from attribute values.
+     * Uses a non-greedy match with a lookahead to handle nested braces (e.g., JSONPath filters).
+     * Also handles the {${...}} form used in some attribute values.
      */
-    private static final Pattern EXPRESSION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+    private static final Pattern EXPRESSION_PATTERN = Pattern.compile(
+            "\\$\\{(.+?)\\}(?!\\})" +     // ${...} — non-greedy, not followed by another }
+            "|\\{\\$\\{(.+?)\\}\\}"        // {${...}} — wrapped form
+    );
 
     /**
      * Elements whose 'key' attribute references a named artifact (endpoint, sequence, etc.).
@@ -399,9 +410,9 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 }
                 break;
             case "inline":
-                if (!hasChildElements(element)) {
+                if (!hasContent(element)) {
                     addDiagnostic(diagnostics, range,
-                            "Enrich source with type='inline' requires inline XML content.",
+                            "Enrich source with type='inline' requires inline content (XML or JSON).",
                             DiagnosticSeverity.Error, "EnrichSourceInlineMissingContent");
                 }
                 break;
@@ -481,14 +492,20 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         }
         for (DOMAttr attr : attrs) {
             String attrValue = attr.getValue();
-            if (attrValue == null || !attrValue.contains("vars.") && !attrValue.contains("vars[")) {
+            if (attrValue == null || (!attrValue.contains("vars.") && !attrValue.contains("vars["))) {
                 continue;
             }
 
-            // Extract ${...} expressions from the attribute value
+            // Extract ${...} or {${...}} expressions from the attribute value
             Matcher exprMatcher = EXPRESSION_PATTERN.matcher(attrValue);
             while (exprMatcher.find()) {
                 String exprContent = exprMatcher.group(1);
+                if (exprContent == null) {
+                    exprContent = exprMatcher.group(2); // {${...}} form
+                }
+                if (exprContent == null) {
+                    continue;
+                }
 
                 // Find vars.X references within the expression
                 Matcher varsMatcher = VARS_REF_PATTERN.matcher(exprContent);
@@ -624,12 +641,19 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
     /**
      * Builds a set of all known artifact names and registry keys in the project.
+     * Results are cached for ARTIFACT_CACHE_TTL_MS to avoid filesystem scanning on every keystroke.
      * Returns null if the project path cannot be determined.
      */
     private Set<String> buildArtifactNameIndex(DOMDocument document) {
         String projectPath = deriveProjectPath(document);
         if (projectPath == null) {
             return null;
+        }
+
+        // Check cache first
+        CachedArtifactIndex cached = artifactIndexCache.get(projectPath);
+        if (cached != null && (System.currentTimeMillis() - cached.timestamp) < ARTIFACT_CACHE_TTL_MS) {
+            return cached.artifactNames;
         }
 
         Set<String> artifactNames = new HashSet<>();
@@ -670,6 +694,9 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             LOGGER.log(Level.WARNING, "Failed to build artifact name index for cross-reference validation", e);
             return null;
         }
+
+        // Update cache
+        artifactIndexCache.put(projectPath, new CachedArtifactIndex(artifactNames, System.currentTimeMillis()));
         return artifactNames;
     }
 
@@ -690,7 +717,11 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 filePath = Paths.get(docUri);
             }
             String pathStr = filePath.toString();
+            // Try OS-native separator first, then forward-slash for URI-style paths
             int idx = pathStr.indexOf(SRC_MAIN_WSO2MI);
+            if (idx <= 0) {
+                idx = pathStr.indexOf(SRC_MAIN_WSO2MI_URI);
+            }
             if (idx > 0) {
                 return pathStr.substring(0, idx - 1); // -1 to remove trailing separator
             }
@@ -711,6 +742,28 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         return false;
     }
 
+    /**
+     * Checks if an element has child elements OR non-whitespace text content (e.g., inline JSON).
+     */
+    private boolean hasContent(DOMElement element) {
+        if (hasChildElements(element)) {
+            return true;
+        }
+        // Check for text content (e.g., inline JSON like {"key": "value"})
+        List<DOMNode> children = element.getChildren();
+        if (children != null) {
+            for (DOMNode child : children) {
+                if (child.isText()) {
+                    String text = child.getTextContent();
+                    if (text != null && !text.trim().isEmpty()) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     private void addDiagnostic(List<Diagnostic> diagnostics, Range range, String message,
                                DiagnosticSeverity severity, String code) {
         Diagnostic diagnostic = new Diagnostic();
@@ -720,5 +773,18 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         diagnostic.setSource(SOURCE);
         diagnostic.setCode(code);
         diagnostics.add(diagnostic);
+    }
+
+    /**
+     * Simple cache entry for the artifact name index.
+     */
+    private static class CachedArtifactIndex {
+        final Set<String> artifactNames;
+        final long timestamp;
+
+        CachedArtifactIndex(Set<String> artifactNames, long timestamp) {
+            this.artifactNames = artifactNames;
+            this.timestamp = timestamp;
+        }
     }
 }

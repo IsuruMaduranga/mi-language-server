@@ -51,8 +51,7 @@ public class ExpressionValidator {
             SemanticExpressionValidator semanticValidator = new SemanticExpressionValidator();
             semanticValidator.visit(tree);
             for (ExpressionError err : semanticValidator.getErrors()) {
-                errors.add(new ExpressionError(expression, err.getLine(), err.getCharPositionInLine(),
-                        err.getMessage(), err.getOffendingSymbol(), err.getException()));
+                errors.add(new ExpressionError(expression, err));
             }
         }
         return errors;
