@@ -17,6 +17,7 @@ package org.eclipse.lemminx.customservice.synapse.connectors;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorAction;
@@ -217,6 +218,7 @@ public class ConnectorReader {
         List<String> dependencies = getDependencies(componentElement);
         readDependencies(connector, dependencies);
         readUISchema(connector);
+        updateRequiredFlags(connector);
         readOutputSchema(connector);
     }
 
@@ -301,6 +303,57 @@ public class ConnectorReader {
         String schema = Utils.readFile(file);
         JsonObject uiJson = Utils.getJsonObject(schema);
         return uiJson.get(Constant.OPERATION_NAME);
+    }
+
+    /**
+     * After UI schemas are loaded, read each action's UI schema JSON to extract
+     * required flags and update the OperationParameter objects accordingly.
+     */
+    private void updateRequiredFlags(Connector connector) {
+
+        for (ConnectorAction action : connector.getActions()) {
+            String uiSchemaPath = action.getUiSchemaPath();
+            if (uiSchemaPath == null) {
+                continue;
+            }
+            try {
+                File uiSchemaFile = new File(uiSchemaPath);
+                if (!uiSchemaFile.exists()) {
+                    continue;
+                }
+                String content = Utils.readFile(uiSchemaFile);
+                JsonObject uiJson = JsonParser.parseString(content).getAsJsonObject();
+                if (!uiJson.has(Constant.ELEMENTS)) {
+                    continue;
+                }
+                JsonArray elements = uiJson.getAsJsonArray(Constant.ELEMENTS);
+                for (JsonElement elem : elements) {
+                    JsonObject element = elem.getAsJsonObject();
+                    if (!element.has(Constant.TYPE) || !Constant.ATTRIBUTE.equals(
+                            element.get(Constant.TYPE).getAsString())) {
+                        continue;
+                    }
+                    if (!element.has(Constant.VALUE)) {
+                        continue;
+                    }
+                    JsonObject value = element.getAsJsonObject(Constant.VALUE);
+                    if (value.has(Constant.NAME) && value.has(Constant.REQUIRED)) {
+                        String paramName = value.get(Constant.NAME).getAsString();
+                        boolean required = value.get(Constant.REQUIRED).getAsBoolean();
+                        if (required) {
+                            for (OperationParameter param : action.getParameters()) {
+                                if (paramName.equals(param.getName())) {
+                                    param.setRequired(true);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.log(Level.WARNING, "Error reading UI schema for required flags: " + action.getName(), e);
+            }
+        }
     }
 
     private void readOutputSchema(Connector connector) {
