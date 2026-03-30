@@ -983,14 +983,16 @@ public class Utils {
                                 Integer.parseInt(Constant.MI_430_VERSION.replace(".", ""))) {
                             return Constant.MI_430_VERSION;
                         }
-                        return Constant.MI_SUPPORTED_VERSION_MAP.get(version);
+                        String mapped = Constant.MI_SUPPORTED_VERSION_MAP.get(version);
+                        return mapped != null ? mapped : Constant.DEFAULT_MI_VERSION;
                     }
                 }
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error occurred while extracting server runtime version.", e);
         }
-        return Constant.MI_SUPPORTED_VERSION_MAP.get(defaultVersion);
+        String mapped = Constant.MI_SUPPORTED_VERSION_MAP.get(defaultVersion);
+        return mapped != null ? mapped : Constant.DEFAULT_MI_VERSION;
     }
 
     public static Map<String, Mustache> getTemplateMap(String resourceFolderName) {
@@ -1024,6 +1026,9 @@ public class Utils {
     public static Path copyXSDFiles(String projectUri) throws IOException, URISyntaxException {
 
         String version = getServerVersion(projectUri, Constant.DEFAULT_MI_VERSION);
+        if (version == null) {
+            version = Constant.DEFAULT_MI_VERSION;
+        }
         String versionFolder = version.replace(".", "");
         String schemasPath = "org/eclipse/lemminx/schemas/" + versionFolder;
         File tempFolder = Files.createTempDirectory("synapse").toFile();
