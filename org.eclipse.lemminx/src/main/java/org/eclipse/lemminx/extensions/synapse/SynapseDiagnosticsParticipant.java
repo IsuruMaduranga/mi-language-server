@@ -47,6 +47,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Synapse-specific diagnostic participant that validates MI configuration XML
@@ -71,6 +72,8 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     private volatile Map<String, String> templateFilePaths = java.util.Collections.emptyMap();
     /** Artifact names that appear in multiple files (duplicates). */
     private volatile Set<String> duplicateArtifactNames = java.util.Collections.emptySet();
+    /** Artifact names that participate in direct circular references (A->B->A). */
+    private volatile Set<String> cyclicArtifacts = java.util.Collections.emptySet();
 
     private static final Set<String> SYNAPSE_ROOT_ELEMENTS = new HashSet<>(Arrays.asList(
             "api", "proxy", "endpoint", "sequence", "inboundEndpoint", "template",
@@ -83,7 +86,24 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
     private static final Set<String> SEQUENCE_CONTAINERS = new HashSet<>(Arrays.asList(
             "inSequence", "outSequence", "faultSequence", "sequence", "then", "else",
-            "case", "default", "onComplete"
+            "case", "default", "onComplete", "onAccept", "onReject"
+    ));
+
+    /**
+     * Pattern for validating fully-qualified Java class names (e.g., com.example.MyClass).
+     * Requires at least one dot (package separator).
+     */
+    private static final Pattern FQN_PATTERN = Pattern.compile(
+            "^[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)+$");
+
+    /**
+     * Pattern for validating comma-separated error codes (integers, possibly negative).
+     */
+    private static final Pattern ERROR_CODES_PATTERN = Pattern.compile(
+            "^\\s*-?\\d+(\\s*,\\s*-?\\d+)*\\s*$");
+
+    private static final Set<String> VALID_RESPONSE_ACTIONS = new HashSet<>(Arrays.asList(
+            "discard", "fault", "never"
     ));
 
     /**
@@ -242,6 +262,28 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             case "call-template":
                 validateCallTemplateParams(element, diagnostics);
                 break;
+            case "bean":
+                validateBeanMediator(element, diagnostics, document);
+                break;
+            case "class":
+                validateClassMediator(element, diagnostics, document);
+                break;
+            case "suspendOnFailure":
+            case "markForSuspension":
+                validateEndpointSuspendConfig(element, diagnostics, document);
+                break;
+            case "timeout":
+                validateEndpointTimeout(element, diagnostics, document);
+                break;
+            case "enqueue":
+                validateEnqueueMediator(element, diagnostics, knownArtifacts);
+                break;
+            case "onComplete":
+                validateOnCompleteSequenceRef(element, diagnostics, knownArtifacts);
+                break;
+            case "dataServiceCall":
+                validateDataServiceCall(element, diagnostics, knownArtifacts);
+                break;
         }
 
         // Check for unreachable code in sequence containers
@@ -300,6 +342,11 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                         DiagnosticSeverity.Error, "FilterMissingCondition");
             }
         }
+
+        // P2-21: Validate regex syntax
+        if (regex != null) {
+            validateRegexAttribute(element, "regex", diagnostics);
+        }
     }
 
     /**
@@ -328,6 +375,23 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                                 "Property" + (propName != null ? " '" + propName + "'" : "") +
                                         " with action 'set' requires a 'value' or 'expression' attribute.",
                                 DiagnosticSeverity.Warning, "PropertySetMissingValue");
+                    }
+                }
+            }
+        }
+
+        // P2-25: Type-value mismatch check
+        String type = element.getAttribute("type");
+        String value = element.getAttribute("value");
+        if (type != null && value != null && !isExpression(value)) {
+            String mismatchMsg = validateTypeValueMatch(type, value);
+            if (mismatchMsg != null) {
+                DOMAttr valueAttr = element.getAttributeNode("value");
+                if (valueAttr != null) {
+                    Range range = XMLPositionUtility.selectAttributeValue(valueAttr);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range, mismatchMsg,
+                                DiagnosticSeverity.Error, "PropertyTypeMismatch");
                     }
                 }
             }
@@ -395,6 +459,8 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         if (children == null) return;
         for (DOMNode child : children) {
             if (child instanceof DOMElement && "case".equals(((DOMElement) child).getLocalName())) {
+                // P2-21: Validate regex syntax
+                validateRegexAttribute((DOMElement) child, "regex", diagnostics);
                 String regex = ((DOMElement) child).getAttribute("regex");
                 if (regex != null && !seenRegex.add(regex)) {
                     Range range = XMLPositionUtility.selectStartTagName((DOMElement) child);
@@ -816,6 +882,20 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         String target = element.getAttribute("target");
         if (target == null || target.isEmpty() || isExpression(target)) return;
 
+        // P2-22: Warn about circular references
+        if (cyclicArtifacts.contains(target)) {
+            DOMAttr targetAttr = element.getAttributeNode("target");
+            if (targetAttr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(targetAttr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Circular reference detected: template '" + target +
+                                    "' has a mutual dependency that would cause infinite recursion at runtime.",
+                            DiagnosticSeverity.Warning, "CircularArtifactReference");
+                }
+            }
+        }
+
         String templatePath = templateFilePaths.get(target);
         if (templatePath == null) return; // Template not found (cross-ref already warns)
 
@@ -1045,6 +1125,19 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         // Check 'key' attribute on endpoint and sequence elements (inside call/send mediators)
         if (KEY_REF_ELEMENTS.contains(name)) {
             String key = element.getAttribute("key");
+            // P2-22: Circular reference check for sequence key references
+            if ("sequence".equals(name) && key != null && cyclicArtifacts.contains(key)) {
+                DOMAttr keyAttr = element.getAttributeNode("key");
+                if (keyAttr != null) {
+                    Range range = XMLPositionUtility.selectAttributeValue(keyAttr);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Circular reference detected: sequence '" + key +
+                                        "' has a mutual dependency that would cause infinite recursion at runtime.",
+                                DiagnosticSeverity.Warning, "CircularArtifactReference");
+                    }
+                }
+            }
             if (key != null && !key.isEmpty() && !isExpression(key) && !knownArtifacts.contains(key)) {
                 DOMAttr keyAttr = element.getAttributeNode("key");
                 if (keyAttr != null) {
@@ -1090,6 +1183,25 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                                 "Referenced error sequence '" + onError + "' not found in the project. " +
                                         "Ensure the sequence exists or check for typos.",
                                 DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                    }
+                }
+            }
+        }
+
+        // P2-28: Check throttle onAccept/onReject attribute references to sequences
+        if ("throttle".equals(name)) {
+            for (String attrName : new String[]{"onAccept", "onReject"}) {
+                String val = element.getAttribute(attrName);
+                if (val != null && !val.isEmpty() && !isExpression(val) && !knownArtifacts.contains(val)) {
+                    DOMAttr attr = element.getAttributeNode(attrName);
+                    if (attr != null) {
+                        Range range = XMLPositionUtility.selectAttributeValue(attr);
+                        if (range != null) {
+                            addDiagnostic(diagnostics, range,
+                                    "Referenced sequence '" + val + "' not found in the project. " +
+                                            "Ensure the sequence exists or check for typos.",
+                                    DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                        }
                     }
                 }
             }
@@ -1244,11 +1356,97 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             }
         }
 
+        // P2-22: Build dependency map and detect direct circular references
+        Set<String> cycles = detectDirectCycles(templatePaths, artifactNames);
+
         // Update instance-level fields and cache
         this.templateFilePaths = templatePaths;
         this.duplicateArtifactNames = duplicates;
+        this.cyclicArtifacts = cycles;
         artifactIndexCache.put(projectPath, new CachedArtifactIndex(artifactNames, System.currentTimeMillis()));
         return artifactNames;
+    }
+
+    /**
+     * P2-22: Detect direct circular references (A->B->A) among templates and sequences.
+     * Parses each artifact file to find outgoing references (call-template target, sequence key),
+     * then checks for mutual references.
+     */
+    private Set<String> detectDirectCycles(Map<String, String> templatePaths, Set<String> allArtifactNames) {
+        // Build dependency map: artifactName -> set of referenced artifact names
+        Map<String, Set<String>> dependencies = new HashMap<>();
+
+        for (Map.Entry<String, String> entry : templatePaths.entrySet()) {
+            String artifactName = entry.getKey();
+            String filePath = entry.getValue();
+            Set<String> refs = extractArtifactReferences(filePath);
+            if (refs != null && !refs.isEmpty()) {
+                dependencies.put(artifactName, refs);
+            }
+        }
+
+        // Check for direct cycles: if A references B and B references A
+        Set<String> cyclic = new HashSet<>();
+        for (Map.Entry<String, Set<String>> entry : dependencies.entrySet()) {
+            String a = entry.getKey();
+            for (String b : entry.getValue()) {
+                Set<String> bRefs = dependencies.get(b);
+                if (bRefs != null && bRefs.contains(a)) {
+                    cyclic.add(a);
+                    cyclic.add(b);
+                }
+            }
+        }
+        return cyclic;
+    }
+
+    /**
+     * Parses an artifact file and extracts outgoing references (call-template target, sequence key).
+     */
+    private Set<String> extractArtifactReferences(String filePath) {
+        try {
+            java.io.File file = new java.io.File(filePath);
+            if (!file.exists()) return null;
+
+            String content = new String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8");
+            org.eclipse.lemminx.commons.TextDocument textDoc =
+                    new org.eclipse.lemminx.commons.TextDocument(content, filePath);
+            DOMDocument doc = org.eclipse.lemminx.dom.DOMParser.getInstance().parse(textDoc, null);
+            DOMElement root = doc.getDocumentElement();
+            if (root == null) return null;
+
+            Set<String> refs = new HashSet<>();
+            collectReferences(root, refs);
+            return refs;
+        } catch (Exception e) {
+            LOGGER.log(Level.FINE, "Could not extract references from: " + filePath, e);
+            return null;
+        }
+    }
+
+    private void collectReferences(DOMNode node, Set<String> refs) {
+        if (!(node instanceof DOMElement)) return;
+        DOMElement element = (DOMElement) node;
+        String name = element.getLocalName();
+
+        if ("call-template".equals(name)) {
+            String target = element.getAttribute("target");
+            if (target != null && !target.isEmpty() && !isExpression(target)) {
+                refs.add(target);
+            }
+        } else if ("sequence".equals(name)) {
+            String key = element.getAttribute("key");
+            if (key != null && !key.isEmpty() && !isExpression(key)) {
+                refs.add(key);
+            }
+        }
+
+        List<DOMNode> children = element.getChildren();
+        if (children != null) {
+            for (DOMNode child : children) {
+                collectReferences(child, refs);
+            }
+        }
     }
 
     /**
@@ -1280,6 +1478,321 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             LOGGER.log(Level.FINE, "Could not derive project path from document URI: " + docUri, e);
         }
         return null;
+    }
+
+    // ===== P2 Validations =====
+
+    /**
+     * P2-20: Bean mediator conditional required attributes.
+     */
+    private void validateBeanMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        String action = element.getAttribute("action");
+        if (action == null) return;
+
+        Range range = XMLPositionUtility.selectStartTagName(element);
+        if (range == null) return;
+
+        switch (action) {
+            case "CREATE":
+                if (element.getAttribute("class") == null) {
+                    addDiagnostic(diagnostics, range,
+                            "Bean mediator with action='CREATE' requires a 'class' attribute specifying " +
+                                    "the fully-qualified class name.",
+                            DiagnosticSeverity.Error, "BeanCreateMissingClass");
+                }
+                break;
+            case "SET_PROPERTY":
+                if (element.getAttribute("property") == null) {
+                    addDiagnostic(diagnostics, range,
+                            "Bean mediator with action='SET_PROPERTY' requires a 'property' attribute.",
+                            DiagnosticSeverity.Error, "BeanPropertyActionMissingProperty");
+                } else if (element.getAttribute("value") == null) {
+                    addDiagnostic(diagnostics, range,
+                            "Bean mediator with action='SET_PROPERTY' requires a 'value' attribute.",
+                            DiagnosticSeverity.Error, "BeanSetPropertyMissingValue");
+                }
+                break;
+            case "GET_PROPERTY":
+                if (element.getAttribute("property") == null) {
+                    addDiagnostic(diagnostics, range,
+                            "Bean mediator with action='GET_PROPERTY' requires a 'property' attribute.",
+                            DiagnosticSeverity.Error, "BeanPropertyActionMissingProperty");
+                }
+                break;
+        }
+    }
+
+    /**
+     * P2-23: Class mediator fully-qualified name validation.
+     */
+    private void validateClassMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        String name = element.getAttribute("name");
+        if (name == null || name.isEmpty() || isExpression(name)) return;
+
+        if (!FQN_PATTERN.matcher(name).matches()) {
+            DOMAttr nameAttr = element.getAttributeNode("name");
+            if (nameAttr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(nameAttr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Class mediator 'name' should be a fully-qualified Java class name " +
+                                    "(e.g., 'com.example.MyMediator'). Got: '" + name + "'.",
+                            DiagnosticSeverity.Warning, "InvalidClassFQN");
+                }
+            }
+        }
+    }
+
+    /**
+     * P2-21: Validates a regex attribute value for syntax errors.
+     */
+    private void validateRegexAttribute(DOMElement element, String attrName, List<Diagnostic> diagnostics) {
+        String regex = element.getAttribute(attrName);
+        if (regex == null || regex.isEmpty() || isExpression(regex)) return;
+
+        try {
+            Pattern.compile(regex);
+        } catch (PatternSyntaxException e) {
+            DOMAttr attr = element.getAttributeNode(attrName);
+            if (attr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(attr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Invalid regex pattern '" + regex + "': " + e.getDescription() + ".",
+                            DiagnosticSeverity.Error, "InvalidRegexPattern");
+                }
+            }
+        }
+    }
+
+    /**
+     * P2-25: Validates that a property mediator's literal value matches its declared type.
+     * Returns an error message if invalid, null if valid.
+     */
+    private String validateTypeValueMatch(String type, String value) {
+        try {
+            switch (type) {
+                case "INTEGER":
+                    Integer.parseInt(value);
+                    break;
+                case "LONG":
+                    Long.parseLong(value);
+                    break;
+                case "SHORT":
+                    Short.parseShort(value);
+                    break;
+                case "FLOAT":
+                    float f = Float.parseFloat(value);
+                    if (Float.isNaN(f) || Float.isInfinite(f)) {
+                        return "Value '" + value + "' is not a valid FLOAT.";
+                    }
+                    break;
+                case "DOUBLE":
+                    double d = Double.parseDouble(value);
+                    if (Double.isNaN(d) || Double.isInfinite(d)) {
+                        return "Value '" + value + "' is not a valid DOUBLE.";
+                    }
+                    break;
+                case "BOOLEAN":
+                    if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+                        return "Value '" + value + "' is not a valid BOOLEAN. Expected 'true' or 'false'.";
+                    }
+                    break;
+                default:
+                    // STRING, OM, JSON — always valid
+                    break;
+            }
+        } catch (NumberFormatException e) {
+            return "Value '" + value + "' is not a valid " + type + ".";
+        }
+        return null;
+    }
+
+    /**
+     * P2-29: Validate endpoint suspendOnFailure/markForSuspension config.
+     */
+    private void validateEndpointSuspendConfig(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        // Only validate inside endpoint context
+        if (!isInsideEndpoint(element)) return;
+
+        List<DOMNode> children = element.getChildren();
+        if (children == null) return;
+
+        for (DOMNode child : children) {
+            if (!(child instanceof DOMElement)) continue;
+            DOMElement childElem = (DOMElement) child;
+            String childName = childElem.getLocalName();
+            if (childName == null) continue;
+
+            String textContent = getElementTextContent(childElem);
+            if (textContent == null || textContent.isEmpty() || isExpression(textContent)) continue;
+
+            if ("errorCodes".equals(childName)) {
+                if (!ERROR_CODES_PATTERN.matcher(textContent).matches()) {
+                    Range range = XMLPositionUtility.selectStartTagName(childElem);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Invalid error codes format: '" + textContent + "'. " +
+                                        "Expected comma-separated integers (e.g., '101503, 101504').",
+                                DiagnosticSeverity.Warning, "InvalidErrorCodesFormat");
+                    }
+                }
+            } else if ("progressionFactor".equals(childName)) {
+                try {
+                    double factor = Double.parseDouble(textContent);
+                    if (factor <= 0) {
+                        Range range = XMLPositionUtility.selectStartTagName(childElem);
+                        if (range != null) {
+                            addDiagnostic(diagnostics, range,
+                                    "Progression factor must be greater than 0. Got: " + textContent + ".",
+                                    DiagnosticSeverity.Warning, "InvalidProgressionFactor");
+                        }
+                    }
+                } catch (NumberFormatException e) {
+                    Range range = XMLPositionUtility.selectStartTagName(childElem);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Progression factor must be a number greater than 0. Got: '" + textContent + "'.",
+                                DiagnosticSeverity.Warning, "InvalidProgressionFactor");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * P2-29: Validate endpoint timeout responseAction value.
+     */
+    private void validateEndpointTimeout(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        // Only validate <timeout> inside endpoint context, not other elements
+        if (!isInsideEndpoint(element)) return;
+
+        List<DOMNode> children = element.getChildren();
+        if (children == null) return;
+
+        for (DOMNode child : children) {
+            if (!(child instanceof DOMElement)) continue;
+            DOMElement childElem = (DOMElement) child;
+            if ("responseAction".equals(childElem.getLocalName())) {
+                String textContent = getElementTextContent(childElem);
+                if (textContent != null && !textContent.isEmpty() && !isExpression(textContent)
+                        && !VALID_RESPONSE_ACTIONS.contains(textContent)) {
+                    Range range = XMLPositionUtility.selectStartTagName(childElem);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Invalid response action '" + textContent + "'. " +
+                                        "Valid values are: 'discard', 'fault', 'never'.",
+                                DiagnosticSeverity.Warning, "InvalidResponseAction");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * P2-28: Enqueue mediator sequence reference validation.
+     */
+    private void validateEnqueueMediator(DOMElement element, List<Diagnostic> diagnostics, Set<String> knownArtifacts) {
+        if (knownArtifacts == null) return;
+        String seq = element.getAttribute("sequence");
+        if (seq != null && !seq.isEmpty() && !isExpression(seq) && !knownArtifacts.contains(seq)) {
+            DOMAttr attr = element.getAttributeNode("sequence");
+            if (attr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(attr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Referenced sequence '" + seq + "' not found in the project. " +
+                                    "Ensure the sequence exists or check for typos.",
+                            DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                }
+            }
+        }
+    }
+
+    /**
+     * P2-28: Aggregate onComplete sequence reference validation.
+     */
+    private void validateOnCompleteSequenceRef(DOMElement element, List<Diagnostic> diagnostics,
+                                               Set<String> knownArtifacts) {
+        if (knownArtifacts == null) return;
+        // Only validate <onComplete> inside <aggregate>
+        DOMNode parent = element.getParentNode();
+        if (!(parent instanceof DOMElement) || !"aggregate".equals(((DOMElement) parent).getLocalName())) {
+            return;
+        }
+        String seq = element.getAttribute("sequence");
+        if (seq != null && !seq.isEmpty() && !isExpression(seq) && !knownArtifacts.contains(seq)) {
+            DOMAttr attr = element.getAttributeNode("sequence");
+            if (attr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(attr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Referenced sequence '" + seq + "' not found in the project. " +
+                                    "Ensure the sequence exists or check for typos.",
+                            DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                }
+            }
+        }
+    }
+
+    /**
+     * P2-27: Data service call serviceName validation.
+     */
+    private void validateDataServiceCall(DOMElement element, List<Diagnostic> diagnostics,
+                                         Set<String> knownArtifacts) {
+        if (knownArtifacts == null) return;
+        String serviceName = element.getAttribute("serviceName");
+        if (serviceName != null && !serviceName.isEmpty() && !isExpression(serviceName)
+                && !knownArtifacts.contains(serviceName)) {
+            DOMAttr attr = element.getAttributeNode("serviceName");
+            if (attr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(attr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Referenced data service '" + serviceName + "' not found in the project. " +
+                                    "Ensure the data service exists or check for typos.",
+                            DiagnosticSeverity.Warning, "UnresolvedDataServiceReference");
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks if an element is inside an endpoint context (http, address, wsdl, default, loadbalance, failover).
+     */
+    private boolean isInsideEndpoint(DOMElement element) {
+        DOMNode current = element.getParentNode();
+        while (current != null) {
+            if (current instanceof DOMElement) {
+                String name = ((DOMElement) current).getLocalName();
+                if ("http".equals(name) || "address".equals(name) || "wsdl".equals(name)
+                        || "default".equals(name) || "loadbalance".equals(name)
+                        || "failover".equals(name) || "endpoint".equals(name)) {
+                    return true;
+                }
+            }
+            current = current.getParentNode();
+        }
+        return false;
+    }
+
+    /**
+     * Gets the trimmed text content of an element (direct text children only).
+     */
+    private String getElementTextContent(DOMElement element) {
+        List<DOMNode> children = element.getChildren();
+        if (children == null) return null;
+        StringBuilder sb = new StringBuilder();
+        for (DOMNode child : children) {
+            if (child.isText()) {
+                String text = child.getTextContent();
+                if (text != null) {
+                    sb.append(text);
+                }
+            }
+        }
+        String result = sb.toString().trim();
+        return result.isEmpty() ? null : result;
     }
 
     private boolean hasChildElements(DOMElement element) {

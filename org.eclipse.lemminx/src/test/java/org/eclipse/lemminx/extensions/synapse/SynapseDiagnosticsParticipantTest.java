@@ -824,4 +824,376 @@ public class SynapseDiagnosticsParticipantTest {
         List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ScriptMissingContent");
         assertTrue(diags.isEmpty());
     }
+
+    // ===== P2-24: Unreachable code in onAccept/onReject =====
+
+    @Test
+    public void testUnreachableCodeInOnAccept() {
+        String xml = synapseWrap(
+                "<throttle id=\"t\"><policy key=\"gov:throttle\"/>" +
+                "<onAccept><respond/><log level=\"full\"/></onAccept></throttle>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "UnreachableCode");
+        assertEquals(1, diags.size());
+        assertTrue(diags.get(0).getMessage().contains("log"));
+    }
+
+    @Test
+    public void testUnreachableCodeInOnReject() {
+        String xml = synapseWrap(
+                "<throttle id=\"t\"><policy key=\"gov:throttle\"/>" +
+                "<onReject><drop/><log level=\"full\"/></onReject></throttle>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "UnreachableCode");
+        assertEquals(1, diags.size());
+        assertTrue(diags.get(0).getMessage().contains("log"));
+    }
+
+    @Test
+    public void testReachableCodeInOnAccept() {
+        String xml = synapseWrap(
+                "<throttle id=\"t\"><policy key=\"gov:throttle\"/>" +
+                "<onAccept><log level=\"full\"/><respond/></onAccept></throttle>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "UnreachableCode");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P2-23: Class mediator FQN validation =====
+
+    @Test
+    public void testClassMediatorInvalidFQN_NoPackage() {
+        String xml = synapseWrap("<class name=\"MyMediator\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidClassFQN");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testClassMediatorValidFQN() {
+        String xml = synapseWrap("<class name=\"com.example.MyMediator\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidClassFQN");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testClassMediatorNumberStartSegment() {
+        String xml = synapseWrap("<class name=\"com.123invalid.Foo\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidClassFQN");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testClassMediatorExpressionSkipped() {
+        String xml = synapseWrap("<class name=\"${payload.className}\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidClassFQN");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testClassMediatorDeepPackage() {
+        String xml = synapseWrap("<class name=\"org.wso2.mi.custom.mediator.Transform\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidClassFQN");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P2-20: Bean mediator conditional required attributes =====
+
+    @Test
+    public void testBeanCreateMissingClass() {
+        String xml = synapseWrap("<bean action=\"CREATE\" var=\"x\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BeanCreateMissingClass");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testBeanCreateWithClass() {
+        String xml = synapseWrap("<bean action=\"CREATE\" var=\"x\" class=\"com.example.Foo\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BeanCreateMissingClass");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testBeanSetPropertyMissingProperty() {
+        String xml = synapseWrap("<bean action=\"SET_PROPERTY\" var=\"x\" value=\"123\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BeanPropertyActionMissingProperty");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testBeanSetPropertyMissingValue() {
+        String xml = synapseWrap("<bean action=\"SET_PROPERTY\" var=\"x\" property=\"name\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BeanSetPropertyMissingValue");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testBeanSetPropertyComplete() {
+        String xml = synapseWrap("<bean action=\"SET_PROPERTY\" var=\"x\" property=\"name\" value=\"123\"/>");
+        List<Diagnostic> diags = diagnose(xml);
+        List<Diagnostic> beanDiags = diags.stream()
+                .filter(d -> d.getCode() != null && d.getCode().getLeft() != null
+                        && d.getCode().getLeft().toString().startsWith("Bean"))
+                .collect(Collectors.toList());
+        assertTrue(beanDiags.isEmpty());
+    }
+
+    @Test
+    public void testBeanGetPropertyMissingProperty() {
+        String xml = synapseWrap("<bean action=\"GET_PROPERTY\" var=\"x\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BeanPropertyActionMissingProperty");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testBeanGetPropertyComplete() {
+        String xml = synapseWrap("<bean action=\"GET_PROPERTY\" var=\"x\" property=\"name\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BeanPropertyActionMissingProperty");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testBeanRemoveNoExtras() {
+        String xml = synapseWrap("<bean action=\"REMOVE\" var=\"x\"/>");
+        List<Diagnostic> diags = diagnose(xml);
+        List<Diagnostic> beanDiags = diags.stream()
+                .filter(d -> d.getCode() != null && d.getCode().getLeft() != null
+                        && d.getCode().getLeft().toString().startsWith("Bean"))
+                .collect(Collectors.toList());
+        assertTrue(beanDiags.isEmpty());
+    }
+
+    // ===== P2-21: Regex syntax validation in switch/filter =====
+
+    @Test
+    public void testSwitchCaseInvalidRegex() {
+        String xml = synapseWrap(
+                "<switch source=\"${payload.type}\">" +
+                "<case regex=\"[unclosed\"><log/></case>" +
+                "<default><log/></default></switch>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidRegexPattern");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testSwitchCaseValidRegex() {
+        String xml = synapseWrap(
+                "<switch source=\"${payload.type}\">" +
+                "<case regex=\"^foo.*$\"><log/></case>" +
+                "<default><log/></default></switch>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidRegexPattern");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testFilterInvalidRegex() {
+        String xml = synapseWrap("<filter source=\"${payload.type}\" regex=\"(unclosed\">" +
+                "<then><log/></then><else><log/></else></filter>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidRegexPattern");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testFilterValidRegex() {
+        String xml = synapseWrap("<filter source=\"${payload.type}\" regex=\"^premium$\">" +
+                "<then><log/></then><else><log/></else></filter>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidRegexPattern");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testSwitchCaseEmptyRegex() {
+        // Empty regex is technically valid (matches empty string)
+        String xml = synapseWrap(
+                "<switch source=\"${payload.type}\">" +
+                "<case regex=\"\"><log/></case>" +
+                "<default><log/></default></switch>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidRegexPattern");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P2-25: Property mediator type-value mismatch =====
+
+    @Test
+    public void testPropertyIntegerValid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"INTEGER\" value=\"42\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPropertyIntegerInvalid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"INTEGER\" value=\"abc\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testPropertyBooleanValid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"BOOLEAN\" value=\"true\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPropertyBooleanInvalid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"BOOLEAN\" value=\"yes\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testPropertyDoubleValid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"DOUBLE\" value=\"3.14\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPropertyDoubleInvalid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"DOUBLE\" value=\"not_num\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testPropertyLongValid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"LONG\" value=\"999999999999\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPropertyFloatInvalid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"FLOAT\" value=\"xyz\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testPropertyShortOverflow() {
+        String xml = synapseWrap("<property name=\"x\" type=\"SHORT\" value=\"99999\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testPropertyExpressionSkipped() {
+        String xml = synapseWrap("<property name=\"x\" type=\"INTEGER\" value=\"${payload.num}\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P2-29: Endpoint suspend/timeout config validation =====
+
+    @Test
+    public void testErrorCodesValid() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<suspendOnFailure><errorCodes>101503, 101504</errorCodes></suspendOnFailure>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidErrorCodesFormat");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testErrorCodesInvalid() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<suspendOnFailure><errorCodes>abc, def</errorCodes></suspendOnFailure>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidErrorCodesFormat");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testProgressionFactorValid() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<suspendOnFailure><progressionFactor>2.0</progressionFactor></suspendOnFailure>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidProgressionFactor");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testProgressionFactorZero() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<suspendOnFailure><progressionFactor>0</progressionFactor></suspendOnFailure>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidProgressionFactor");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testProgressionFactorNegative() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<suspendOnFailure><progressionFactor>-1</progressionFactor></suspendOnFailure>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidProgressionFactor");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testResponseActionValid() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<timeout><responseAction>discard</responseAction></timeout>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidResponseAction");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testResponseActionInvalid() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<timeout><responseAction>ignore</responseAction></timeout>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidResponseAction");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testResponseActionFault() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<timeout><responseAction>fault</responseAction></timeout>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidResponseAction");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testProgressionFactorNonNumeric() {
+        String xml = "<endpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"EP\">"
+                + "<http method=\"GET\" uri-template=\"http://localhost:8080\">"
+                + "<suspendOnFailure><progressionFactor>abc</progressionFactor></suspendOnFailure>"
+                + "</http></endpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "InvalidProgressionFactor");
+        assertEquals(1, diags.size());
+    }
+
+    // ===== P2-25: Property BOOLEAN case insensitive =====
+
+    @Test
+    public void testPropertyBooleanCaseInsensitive() {
+        String xml = synapseWrap("<property name=\"x\" type=\"BOOLEAN\" value=\"TRUE\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPropertyStringAlwaysValid() {
+        String xml = synapseWrap("<property name=\"x\" type=\"STRING\" value=\"anything goes\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
+        assertTrue(diags.isEmpty());
+    }
 }
