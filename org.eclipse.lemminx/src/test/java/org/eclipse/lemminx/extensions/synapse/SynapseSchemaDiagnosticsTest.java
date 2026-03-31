@@ -24,9 +24,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for Synapse XSD schema validation.
- * Tests the required attribute changes against both 430 and 440 schemas:
- * - 430/440: endpoint method/uri-template, inbound sequence
- * - 440 only: throwError type/errorMessage
+ * Tests schema changes against both 430 and 440 schemas:
+ * - 430/440: endpoint uri-template required, method optional (pass-through)
+ * - 430/440: inbound sequence required (always present in deployed XML)
+ * - 440 only: throwError type/errorMessage required
  */
 public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
 
@@ -41,16 +42,15 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
         testDiagnosticsFor(xml, SYNAPSE_CATALOG_440, expected);
     }
 
-    // ===== HTTPEndpoint required attributes =====
+    // ===== HTTPEndpoint attributes =====
 
     @Test
-    public void testHTTPEndpointMissingMethod() throws Exception {
+    public void testHTTPEndpointPassThroughMethodValid() throws Exception {
         String xml = "<endpoint xmlns=\"http://ws.apache.org/ns/synapse\" name=\"testEP\">\n"
                 + "  <http uri-template=\"http://localhost:9090/test\"/>\n"
                 + "</endpoint>";
-        // method is now required — should produce cvc-complex-type.4
-        testSynapseDiagnostics430(xml,
-                d(1, 3, 1, 7, XMLSchemaErrorCode.cvc_complex_type_4));
+        // method is optional — pass-through endpoints forward the incoming HTTP method
+        testSynapseDiagnostics430(xml);
     }
 
     @Test
@@ -58,7 +58,7 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
         String xml = "<endpoint xmlns=\"http://ws.apache.org/ns/synapse\" name=\"testEP\">\n"
                 + "  <http method=\"get\"/>\n"
                 + "</endpoint>";
-        // uri-template is now required — should produce cvc-complex-type.4
+        // uri-template is required — should produce cvc-complex-type.4
         testSynapseDiagnostics430(xml,
                 d(1, 3, 1, 7, XMLSchemaErrorCode.cvc_complex_type_4));
     }
@@ -79,23 +79,23 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
         testSynapseDiagnostics430(xml);
     }
 
-    // ===== InboundEndpoint required sequence =====
+    // ===== InboundEndpoint sequence is required =====
 
     @Test
-    public void testInboundEndpointMissingSequence() throws Exception {
+    public void testInboundEndpointWithoutSequenceInvalid() throws Exception {
         String xml = "<inboundEndpoint xmlns=\"http://ws.apache.org/ns/synapse\""
                 + " name=\"testInbound\" protocol=\"http\" suspend=\"false\">\n"
                 + "  <parameters>\n"
                 + "    <parameter name=\"inbound.http.port\">8085</parameter>\n"
                 + "  </parameters>\n"
                 + "</inboundEndpoint>";
-        // sequence is now required — should produce cvc-complex-type.4
+        // sequence is always required — generateSequences is a UI concept that auto-fills it
         testSynapseDiagnostics430(xml,
                 d(0, 1, 0, 16, XMLSchemaErrorCode.cvc_complex_type_4));
     }
 
     @Test
-    public void testInboundEndpointValid() throws Exception {
+    public void testInboundEndpointWithSequenceValid() throws Exception {
         String xml = "<inboundEndpoint xmlns=\"http://ws.apache.org/ns/synapse\""
                 + " name=\"testInbound\" protocol=\"http\" sequence=\"main\" suspend=\"false\">\n"
                 + "  <parameters>\n"
@@ -151,12 +151,12 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
     // ===== 440: same endpoint/inbound rules apply =====
 
     @Test
-    public void testHTTPEndpointMissingMethod440() throws Exception {
+    public void testHTTPEndpointPassThroughMethodValid440() throws Exception {
         String xml = "<endpoint xmlns=\"http://ws.apache.org/ns/synapse\" name=\"testEP\">\n"
                 + "  <http uri-template=\"http://localhost:9090/test\"/>\n"
                 + "</endpoint>";
-        testSynapseDiagnostics440(xml,
-                d(1, 3, 1, 7, XMLSchemaErrorCode.cvc_complex_type_4));
+        // method is optional — pass-through endpoints forward the incoming HTTP method
+        testSynapseDiagnostics440(xml);
     }
 
     @Test

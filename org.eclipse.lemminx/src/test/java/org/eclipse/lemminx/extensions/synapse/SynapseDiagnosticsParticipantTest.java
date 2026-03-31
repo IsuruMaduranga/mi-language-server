@@ -448,6 +448,19 @@ public class SynapseDiagnosticsParticipantTest {
         assertEquals(1, diags.size(), "Variable with action=remove should not count as defined");
     }
 
+    @Test
+    public void testResponseVariableDefinesVariable() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<gmail.sendMail configKey=\"CONN\">"
+                + "<to>test@example.com</to>"
+                + "<responseVariable>gmailResponse</responseVariable>"
+                + "</gmail.sendMail>"
+                + "<log level=\"custom\"><property name=\"x\" expression=\"${vars.gmailResponse}\"/></log>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "UndefinedVariable");
+        assertTrue(diags.isEmpty(), "responseVariable child element should define the variable");
+    }
+
     // ===== Non-Synapse document skipping =====
 
     @Test

@@ -1065,6 +1065,12 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         } else if ("foreach".equals(name) || "iterate".equals(name)) {
             // foreach/iterate implicitly define a loop counter variable
             // and the collection item is accessible in the flow
+        } else if ("responseVariable".equals(name)) {
+            // <responseVariable>varName</responseVariable> in connector operations and AI mediators
+            String varName = getElementTextContent(element);
+            if (varName != null) {
+                definedVariables.add(varName);
+            }
         }
     }
 
@@ -1107,8 +1113,9 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                         Range range = XMLPositionUtility.selectAttributeValue(attr);
                         if (range != null) {
                             addDiagnostic(diagnostics, range,
-                                    "Variable '" + varName + "' is referenced but not defined in the preceding " +
-                                            "mediation flow. Define it using <variable name=\"" + varName +
+                                    "Variable '" + varName + "' is referenced but not defined in this file. " +
+                                            "If it is defined in a calling sequence, this warning can be ignored. " +
+                                            "Otherwise, define it using <variable name=\"" + varName +
                                             "\" .../> before this point.",
                                     DiagnosticSeverity.Warning, "UndefinedVariable");
                         }
@@ -1823,7 +1830,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         List<DOMNode> children = element.getChildren();
         if (children != null) {
             for (DOMNode child : children) {
-                if (child.isText()) {
+                if (child.isText() || child.isCDATA()) {
                     String text = child.getTextContent();
                     if (text != null && !text.trim().isEmpty()) {
                         return true;
