@@ -207,6 +207,19 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
     }
 
     @Override
+    public Void visitArithmeticExpression(ExpressionParser.ArithmeticExpressionContext ctx) {
+        List<ExpressionParser.TermContext> terms = ctx.term();
+        if (terms != null && terms.size() > 1) {
+            for (int i = 1; i < terms.size(); i++) {
+                Token opToken = findArithmeticOperatorBetween(ctx, terms.get(i - 1), terms.get(i));
+                if (opToken == null) continue;
+                checkArithmeticOperandTypes(opToken, terms.get(i - 1), terms.get(i));
+            }
+        }
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Void visitTerm(ExpressionParser.TermContext ctx) {
         List<ExpressionParser.FactorContext> factors = ctx.factor();
         if (factors != null && factors.size() > 1) {
@@ -227,6 +240,10 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
                         error.setWarning(true);
                         errors.add(error);
                     }
+                }
+                // Check operand types for *, /, %
+                if (opToken != null) {
+                    checkMultiplicativeOperandTypes(opToken, factors.get(i - 1), factors.get(i));
                 }
             }
         }
@@ -363,6 +380,127 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
                 message, token, null);
         error.setWarning(true);
         errors.add(error);
+    }
+
+    @Override
+    public Void visitArrayIndex(ExpressionParser.ArrayIndexContext ctx) {
+        if (ctx.NUMBER() != null) {
+            String text = ctx.NUMBER().getText();
+            if (text.contains(".")) {
+                Token token = ctx.NUMBER().getSymbol();
+                ExpressionError error = new ExpressionError(token.getLine(),
+                        token.getCharPositionInLine(),
+                        "Array index should be an integer, but found floating-point number '" + text + "'.",
+                        token, null);
+                error.setWarning(true);
+                errors.add(error);
+            }
+        }
+        return visitChildren(ctx);
+    }
+
+    /**
+     * Checks operand types for additive operators (+ and -).
+     * For '-': string and boolean literals are invalid operands.
+     * For '+': boolean literals are invalid (string concatenation with + is allowed).
+     */
+    private void checkArithmeticOperandTypes(Token opToken,
+                                              ExpressionParser.TermContext left,
+                                              ExpressionParser.TermContext right) {
+        boolean isMinus = opToken.getType() == ExpressionLexer.MINUS;
+        String opSymbol = isMinus ? "-" : "+";
+
+        String leftType = getTermLiteralType(left);
+        String rightType = getTermLiteralType(right);
+
+        if (leftType != null && !isValidAdditiveOperand(leftType, isMinus)) {
+            addArithmeticTypeWarning(opSymbol, leftType, left.getStart());
+        }
+        if (rightType != null && !isValidAdditiveOperand(rightType, isMinus)) {
+            addArithmeticTypeWarning(opSymbol, rightType, right.getStart());
+        }
+    }
+
+    /**
+     * Checks operand types for multiplicative operators (*, /, %).
+     * String and boolean literals are invalid operands for these operators.
+     */
+    private void checkMultiplicativeOperandTypes(Token opToken,
+                                                  ExpressionParser.FactorContext left,
+                                                  ExpressionParser.FactorContext right) {
+        String opSymbol = opToken.getText();
+        String leftType = getFactorLiteralType(left);
+        String rightType = getFactorLiteralType(right);
+
+        if (leftType != null && !isNumericType(leftType)) {
+            addArithmeticTypeWarning(opSymbol, leftType, left.getStart());
+        }
+        if (rightType != null && !isNumericType(rightType)) {
+            addArithmeticTypeWarning(opSymbol, rightType, right.getStart());
+        }
+    }
+
+    private boolean isValidAdditiveOperand(String literalType, boolean isMinus) {
+        if (isMinus) {
+            // For '-', only number is valid
+            return isNumericType(literalType);
+        }
+        // For '+', number and string are valid (string concatenation)
+        return isNumericType(literalType) || "string".equals(literalType);
+    }
+
+    private boolean isNumericType(String type) {
+        return "number".equals(type) || "integer".equals(type);
+    }
+
+    private void addArithmeticTypeWarning(String operator, String literalType, Token token) {
+        ExpressionError error = new ExpressionError(token.getLine(), token.getCharPositionInLine(),
+                "Arithmetic operator '" + operator + "' cannot be applied to " + literalType + " literal.",
+                token, null);
+        error.setWarning(true);
+        errors.add(error);
+    }
+
+    /**
+     * Finds the operator token between two term contexts within an arithmeticExpression.
+     */
+    private Token findArithmeticOperatorBetween(ExpressionParser.ArithmeticExpressionContext arith,
+                                                 ExpressionParser.TermContext left,
+                                                 ExpressionParser.TermContext right) {
+        int leftEnd = left.getStop().getTokenIndex();
+        int rightStart = right.getStart().getTokenIndex();
+        for (int i = 0; i < arith.getChildCount(); i++) {
+            if (arith.getChild(i) instanceof TerminalNode) {
+                Token t = ((TerminalNode) arith.getChild(i)).getSymbol();
+                if (t.getTokenIndex() > leftEnd && t.getTokenIndex() < rightStart) {
+                    return t;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the literal type of a term if it is a single literal factor, or null otherwise.
+     */
+    private String getTermLiteralType(ExpressionParser.TermContext term) {
+        List<ExpressionParser.FactorContext> factors = term.factor();
+        if (factors == null || factors.size() != 1) return null;
+        return getFactorLiteralType(factors.get(0));
+    }
+
+    /**
+     * Returns the literal type of a factor if it is a direct literal, or null otherwise.
+     */
+    private String getFactorLiteralType(ExpressionParser.FactorContext factor) {
+        ExpressionParser.LiteralContext literal = factor.literal();
+        if (literal == null) return null;
+        if (literal.STRING_LITERAL() != null) return "string";
+        if (literal.NUMBER() != null) return "number";
+        if (literal.BOOLEAN_LITERAL() != null) return "boolean";
+        if (literal.arrayLiteral() != null) return "array";
+        if (literal.NULL_LITERAL() != null) return "null";
+        return null;
     }
 
     /**

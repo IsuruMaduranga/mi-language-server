@@ -330,4 +330,115 @@ public class ExpressionValidatorTest {
         assertEquals(1, errors.size(), "Division by 0.0 should produce a warning");
         assertTrue(errors.get(0).getMessage().contains("Division by zero"));
     }
+
+    // ===== Unary NOT operator support =====
+
+    @Test
+    public void testUnaryNotBoolean() {
+        List<ExpressionError> errors = ExpressionValidator.validate("!true");
+        assertTrue(errors.isEmpty(), "!true should be valid syntax");
+    }
+
+    @Test
+    public void testUnaryNotPayloadAccess() {
+        List<ExpressionError> errors = ExpressionValidator.validate("!payload.active");
+        assertTrue(errors.isEmpty(), "!payload.active should be valid syntax");
+    }
+
+    @Test
+    public void testUnaryNotParenthesizedExpression() {
+        List<ExpressionError> errors = ExpressionValidator.validate("!(payload.x > 5)");
+        assertTrue(errors.isEmpty(), "!(payload.x > 5) should be valid syntax");
+    }
+
+    @Test
+    public void testDoubleNegation() {
+        List<ExpressionError> errors = ExpressionValidator.validate("!!true");
+        assertTrue(errors.isEmpty(), "!!true should be valid syntax");
+    }
+
+    // ===== Arithmetic operand type checking =====
+
+    @Test
+    public void testStringPlusNumberNoWarning() {
+        // String concatenation with + is valid
+        List<ExpressionError> errors = ExpressionValidator.validate("\"hello\" + 123");
+        assertTrue(errors.isEmpty(), "String + number should be valid (string concatenation)");
+    }
+
+    @Test
+    public void testStringMinusNumberWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("\"hello\" - 123");
+        assertFalse(errors.isEmpty(), "String - number should produce a warning");
+        assertTrue(errors.stream().anyMatch(e -> e.getMessage().contains("cannot be applied to string")),
+                "Should warn about string with minus operator");
+        assertTrue(errors.stream().allMatch(ExpressionError::isWarning), "Should be a warning, not an error");
+    }
+
+    @Test
+    public void testStringMultiplyWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("\"hello\" * 2");
+        assertFalse(errors.isEmpty(), "String * number should produce a warning");
+        assertTrue(errors.stream().anyMatch(e -> e.getMessage().contains("cannot be applied to string")),
+                "Should warn about string with multiply operator");
+    }
+
+    @Test
+    public void testBooleanPlusNumberWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("true + 1");
+        assertFalse(errors.isEmpty(), "Boolean + number should produce a warning");
+        assertTrue(errors.stream().anyMatch(e -> e.getMessage().contains("cannot be applied to boolean")),
+                "Should warn about boolean with plus operator");
+    }
+
+    @Test
+    public void testBooleanMinusBooleanWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("true - false");
+        assertFalse(errors.isEmpty(), "Boolean - boolean should produce warnings");
+        assertTrue(errors.stream().anyMatch(e -> e.getMessage().contains("cannot be applied to boolean")),
+                "Should warn about boolean with minus operator");
+    }
+
+    @Test
+    public void testNumberPlusNumberNoWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("5 + 3");
+        assertTrue(errors.isEmpty(), "Number + number should produce no warnings");
+    }
+
+    @Test
+    public void testDynamicValuePlusStringNoWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload.x + \"str\"");
+        assertTrue(errors.isEmpty(), "Dynamic value + string should not be flagged");
+    }
+
+    @Test
+    public void testBooleanDivisionWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("true / 2");
+        assertFalse(errors.isEmpty(), "Boolean / number should produce a warning");
+        assertTrue(errors.stream().anyMatch(e -> e.getMessage().contains("cannot be applied to boolean")),
+                "Should warn about boolean with division operator");
+    }
+
+    // ===== Array index type validation =====
+
+    @Test
+    public void testFloatArrayIndexWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload[1.5]");
+        assertFalse(errors.isEmpty(), "Float array index should produce a warning");
+        assertTrue(errors.stream().anyMatch(e -> e.getMessage().contains("floating-point")),
+                "Should warn about floating-point array index");
+        assertTrue(errors.stream().allMatch(ExpressionError::isWarning), "Should be a warning, not an error");
+    }
+
+    @Test
+    public void testIntegerArrayIndexNoWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload[1]");
+        assertTrue(errors.isEmpty(), "Integer array index should produce no warnings");
+    }
+
+    @Test
+    public void testZeroArrayIndexNoWarning() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload[0]");
+        assertTrue(errors.isEmpty(), "Zero array index should produce no warnings");
+    }
 }
