@@ -14,8 +14,10 @@
 
 package org.eclipse.lemminx.extensions.synapse;
 
+import org.eclipse.lemminx.extensions.synapse.codeactions.SynapseCodeActionParticipant;
 import org.eclipse.lemminx.services.extensions.IXMLExtension;
 import org.eclipse.lemminx.services.extensions.XMLExtensionsRegistry;
+import org.eclipse.lemminx.services.extensions.codeaction.ICodeActionParticipant;
 import org.eclipse.lemminx.services.extensions.diagnostics.IDiagnosticsParticipant;
 import org.eclipse.lsp4j.InitializeParams;
 
@@ -27,18 +29,22 @@ import org.eclipse.lsp4j.InitializeParams;
 public class SynapsePlugin implements IXMLExtension {
 
     private final IDiagnosticsParticipant diagnosticsParticipant;
+    private final ICodeActionParticipant codeActionParticipant;
 
     public SynapsePlugin() {
         diagnosticsParticipant = new SynapseDiagnosticsParticipant();
+        codeActionParticipant = new SynapseCodeActionParticipant();
     }
 
     @Override
     public void start(InitializeParams params, XMLExtensionsRegistry registry) {
         registry.registerDiagnosticsParticipant(diagnosticsParticipant);
+        registry.registerCodeActionParticipant(codeActionParticipant);
     }
 
     @Override
     public void stop(XMLExtensionsRegistry registry) {
         registry.unregisterDiagnosticsParticipant(diagnosticsParticipant);
+        registry.unregisterCodeActionParticipant(codeActionParticipant);
     }
 }
