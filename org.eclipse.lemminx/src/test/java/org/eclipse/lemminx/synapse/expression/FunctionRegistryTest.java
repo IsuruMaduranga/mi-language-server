@@ -173,4 +173,53 @@ public class FunctionRegistryTest {
         boolean has2Arg = overloads.stream().anyMatch(s -> s.getArity() == 2);
         assertTrue(has2Arg, "registry should have a 2-arg overload");
     }
+
+    // ===== P3-43: functions.json completeness =====
+
+    @Test
+    public void testFormatDateTimeOverloads() {
+        List<FunctionSignature> overloads = registry.getOverloads("formatDateTime");
+        assertNotNull(overloads);
+        boolean has2Arg = overloads.stream().anyMatch(s -> s.getArity() == 2);
+        boolean has3Arg = overloads.stream().anyMatch(s -> s.getArity() == 3);
+        assertTrue(has2Arg, "formatDateTime should have a 2-arg overload");
+        assertTrue(has3Arg, "formatDateTime should have a 3-arg overload");
+    }
+
+    @Test
+    public void testLogOverloads() {
+        List<FunctionSignature> overloads = registry.getOverloads("log");
+        assertNotNull(overloads);
+        boolean has1Arg = overloads.stream().anyMatch(s -> s.getArity() == 1);
+        boolean has2Arg = overloads.stream().anyMatch(s -> s.getArity() == 2);
+        assertTrue(has1Arg, "log should have a 1-arg overload");
+        assertTrue(has2Arg, "log should have a 2-arg overload");
+    }
+
+    @Test
+    public void testRoundParamTypes() {
+        List<FunctionSignature> overloads = registry.getOverloads("round");
+        FunctionSignature oneArg = overloads.stream().filter(s -> s.getArity() == 1).findFirst().orElse(null);
+        FunctionSignature twoArg = overloads.stream().filter(s -> s.getArity() == 2).findFirst().orElse(null);
+        assertNotNull(oneArg);
+        assertNotNull(twoArg);
+        assertEquals("number", oneArg.getParamTypes().get(0));
+        assertEquals("number", twoArg.getParamTypes().get(0));
+        assertEquals("integer", twoArg.getParamTypes().get(1));
+    }
+
+    @Test
+    public void testObjectAndArrayFunctionsLoaded() {
+        assertTrue(registry.hasFunction("object"), "object should be loaded from functions.json");
+        assertTrue(registry.hasFunction("array"), "array should be loaded from functions.json");
+        assertEquals(1, registry.getMinArity("object"));
+        assertEquals(1, registry.getMinArity("array"));
+    }
+
+    @Test
+    public void testExistsFunctionLoaded() {
+        assertTrue(registry.hasFunction("exists"), "exists should be loaded from functions.json");
+        assertEquals(1, registry.getMinArity("exists"));
+        assertEquals("any", registry.getOverloads("exists").get(0).getParamTypes().get(0));
+    }
 }

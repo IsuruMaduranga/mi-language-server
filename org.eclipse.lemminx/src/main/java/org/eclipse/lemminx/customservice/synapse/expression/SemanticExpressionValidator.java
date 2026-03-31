@@ -207,6 +207,67 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
     }
 
     @Override
+    public Void visitTerm(ExpressionParser.TermContext ctx) {
+        List<ExpressionParser.FactorContext> factors = ctx.factor();
+        if (factors != null && factors.size() > 1) {
+            // term : factor ( (ASTERISK | DIV | MODULO) factor )*
+            // Operators are interleaved between factors in the child list.
+            for (int i = 1; i < factors.size(); i++) {
+                // Find the operator token between factor[i-1] and factor[i]
+                Token opToken = findOperatorBetween(ctx, factors.get(i - 1), factors.get(i));
+                if (opToken != null && (opToken.getType() == ExpressionLexer.DIV
+                        || opToken.getType() == ExpressionLexer.MODULO)) {
+                    ExpressionParser.FactorContext divisor = factors.get(i);
+                    if (isLiteralZero(divisor)) {
+                        String op = opToken.getType() == ExpressionLexer.DIV ? "Division" : "Modulo";
+                        Token token = divisor.getStart();
+                        ExpressionError error = new ExpressionError(token.getLine(),
+                                token.getCharPositionInLine(),
+                                op + " by zero: divisor is literal 0.", token, null);
+                        error.setWarning(true);
+                        errors.add(error);
+                    }
+                }
+            }
+        }
+        return visitChildren(ctx);
+    }
+
+    /**
+     * Finds the operator token between two factor contexts within a term.
+     */
+    private Token findOperatorBetween(ExpressionParser.TermContext term,
+                                       ExpressionParser.FactorContext left,
+                                       ExpressionParser.FactorContext right) {
+        int leftEnd = left.getStop().getTokenIndex();
+        int rightStart = right.getStart().getTokenIndex();
+        for (int i = 0; i < term.getChildCount(); i++) {
+            if (term.getChild(i) instanceof TerminalNode) {
+                Token t = ((TerminalNode) term.getChild(i)).getSymbol();
+                if (t.getTokenIndex() > leftEnd && t.getTokenIndex() < rightStart) {
+                    return t;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Checks if a factor is a literal number with value 0 (e.g., 0, 0.0, 0.00).
+     */
+    private boolean isLiteralZero(ExpressionParser.FactorContext factor) {
+        if (factor.literal() == null) return false;
+        ExpressionParser.LiteralContext lit = factor.literal();
+        if (lit.NUMBER() == null) return false;
+        try {
+            double value = Double.parseDouble(lit.NUMBER().getText());
+            return value == 0.0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    @Override
     public Void visitFilterExpression(ExpressionParser.FilterExpressionContext ctx) {
         List<ExpressionParser.FilterComponentContext> components = ctx.filterComponent();
         if (components == null || components.size() < 2) {

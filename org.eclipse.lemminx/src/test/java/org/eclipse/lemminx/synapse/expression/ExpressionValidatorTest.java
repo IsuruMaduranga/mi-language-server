@@ -244,4 +244,90 @@ public class ExpressionValidatorTest {
                 "subString(toUpper(payload.name), 0, length(payload.name))");
         assertTrue(errors.isEmpty(), "Complex valid expression should produce no errors");
     }
+
+    // ===== P3-43: functions.json completeness integration tests =====
+
+    @Test
+    public void testFormatDateTimeTwoArgs() {
+        List<ExpressionError> errors = ExpressionValidator.validate(
+                "formatDateTime(\"2026-01-01\", \"yyyy-MM-dd\")");
+        assertTrue(errors.isEmpty(), "formatDateTime with 2 args should be valid");
+    }
+
+    @Test
+    public void testFormatDateTimeThreeArgs() {
+        List<ExpressionError> errors = ExpressionValidator.validate(
+                "formatDateTime(\"2026-01-01\", \"yyyy-MM-dd\", \"dd/MM/yyyy\")");
+        assertTrue(errors.isEmpty(), "formatDateTime with 3 args should be valid");
+    }
+
+    @Test
+    public void testLogTwoArgs() {
+        List<ExpressionError> errors = ExpressionValidator.validate("log(100, 10)");
+        assertTrue(errors.isEmpty(), "log(number, number) should be valid");
+    }
+
+    @Test
+    public void testRegistryTwoArgs() {
+        List<ExpressionError> errors = ExpressionValidator.validate(
+                "registry(\"conf:/path\", \"propKey\")");
+        assertTrue(errors.isEmpty(), "registry(string, string) should be valid");
+    }
+
+    @Test
+    public void testXpathTwoArgs() {
+        List<ExpressionError> errors = ExpressionValidator.validate(
+                "xpath(\"//element\", \"varName\")");
+        assertTrue(errors.isEmpty(), "xpath(string, string) should be valid");
+    }
+
+    @Test
+    public void testUrlEncodeTwoArgs() {
+        List<ExpressionError> errors = ExpressionValidator.validate(
+                "urlEncode(\"hello world\", \"UTF-8\")");
+        assertTrue(errors.isEmpty(), "urlEncode(string, string) should be valid");
+    }
+
+    @Test
+    public void testBooleanZeroArgsFails() {
+        List<ExpressionError> errors = ExpressionValidator.validate("boolean()");
+        assertFalse(errors.isEmpty(), "boolean() with no args should fail");
+    }
+
+    // ===== P3-40: Division by zero detection =====
+
+    @Test
+    public void testDivisionByLiteralZero() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload.x / 0");
+        assertEquals(1, errors.size(), "Division by literal 0 should produce a warning");
+        assertTrue(errors.get(0).getMessage().contains("Division by zero"));
+        assertTrue(errors.get(0).isWarning(), "Division by zero should be a warning, not an error");
+    }
+
+    @Test
+    public void testModuloByLiteralZero() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload.x % 0");
+        assertEquals(1, errors.size(), "Modulo by literal 0 should produce a warning");
+        assertTrue(errors.get(0).getMessage().contains("Modulo by zero"));
+        assertTrue(errors.get(0).isWarning());
+    }
+
+    @Test
+    public void testDivisionByNonZero() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload.x / 5");
+        assertTrue(errors.isEmpty(), "Division by non-zero should produce no warnings");
+    }
+
+    @Test
+    public void testDivisionByDynamicValue() {
+        List<ExpressionError> errors = ExpressionValidator.validate("payload.x / payload.y");
+        assertTrue(errors.isEmpty(), "Division by dynamic value should not be flagged");
+    }
+
+    @Test
+    public void testDivisionByZeroPointZero() {
+        List<ExpressionError> errors = ExpressionValidator.validate("10 / 0.0");
+        assertEquals(1, errors.size(), "Division by 0.0 should produce a warning");
+        assertTrue(errors.get(0).getMessage().contains("Division by zero"));
+    }
 }

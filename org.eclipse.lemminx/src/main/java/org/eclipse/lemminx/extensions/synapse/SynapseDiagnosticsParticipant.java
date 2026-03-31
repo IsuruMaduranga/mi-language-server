@@ -284,6 +284,12 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             case "dataServiceCall":
                 validateDataServiceCall(element, diagnostics, knownArtifacts);
                 break;
+            case "action":
+                validateRewriteAction(element, diagnostics, document);
+                break;
+            case "on-fail":
+                validateOnFail(element, diagnostics, document);
+                break;
         }
 
         // Check for unreachable code in sequence containers
@@ -1826,6 +1832,87 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             }
         }
         return false;
+    }
+
+    /**
+     * P3-31: Rewrite mediator action requires value/xpath/regex depending on type.
+     * When type is set/append/prepend (or absent, defaults to set): requires value or xpath.
+     * When type is replace: requires value or xpath or regex.
+     * When type is remove: no value/xpath/regex needed.
+     */
+    private void validateRewriteAction(DOMElement element, List<Diagnostic> diagnostics,
+                                        DOMDocument document) {
+        // Only validate <action> inside <rewriterule>
+        DOMNode parent = element.getParentNode();
+        if (parent == null || !(parent instanceof DOMElement)
+                || !"rewriterule".equals(((DOMElement) parent).getLocalName())) {
+            return;
+        }
+        String type = element.getAttribute("type");
+        // type="remove" doesn't need value/xpath/regex
+        if ("remove".equals(type)) {
+            return;
+        }
+        String value = element.getAttribute("value");
+        String xpath = element.getAttribute("xpath");
+        String regex = element.getAttribute("regex");
+
+        boolean hasValueOrXpath = value != null || xpath != null;
+        if ("replace".equals(type)) {
+            // replace can use value, xpath, or regex
+            if (!hasValueOrXpath && regex == null) {
+                Range range = XMLPositionUtility.selectStartTagName(element);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Rewrite action with type 'replace' requires at least one of 'value', 'xpath', or 'regex' attribute.",
+                            DiagnosticSeverity.Warning, "RewriteActionMissingValue");
+                }
+            }
+        } else {
+            // set, append, prepend (or absent = set)
+            if (!hasValueOrXpath) {
+                String typeLabel = type != null ? type : "set";
+                Range range = XMLPositionUtility.selectStartTagName(element);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Rewrite action with type '" + typeLabel + "' requires a 'value' or 'xpath' attribute.",
+                            DiagnosticSeverity.Warning, "RewriteActionMissingValue");
+                }
+            }
+        }
+    }
+
+    /**
+     * P3-47: Validate mediator on-fail must have at least one child mediator.
+     * The XSD enforces this via mediatorList minOccurs="1", but this is a safety net.
+     */
+    private void validateOnFail(DOMElement element, List<Diagnostic> diagnostics,
+                                 DOMDocument document) {
+        // Only validate <on-fail> inside <validate>
+        DOMNode parent = element.getParentNode();
+        if (parent == null || !(parent instanceof DOMElement)
+                || !"validate".equals(((DOMElement) parent).getLocalName())) {
+            return;
+        }
+        // Check for at least one child element (mediator)
+        boolean hasChildElement = false;
+        List<DOMNode> children = element.getChildren();
+        if (children != null) {
+            for (DOMNode child : children) {
+                if (child instanceof DOMElement) {
+                    hasChildElement = true;
+                    break;
+                }
+            }
+        }
+        if (!hasChildElement) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "The 'on-fail' element must contain at least one mediator to handle validation failures.",
+                        DiagnosticSeverity.Warning, "ValidateOnFailEmpty");
+            }
+        }
     }
 
     private void addDiagnostic(List<Diagnostic> diagnostics, Range range, String message,

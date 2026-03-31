@@ -148,19 +148,8 @@ public class FunctionRegistry {
                 }
             }
 
-            // TODO: Remove hardcoded overrides below once functions.json is updated with correct signatures.
-            // These compensate for missing or incomplete entries in the JSON file.
-
-            // Add 'round' with 1-2 args (present in grammar but not in functions.json with overloads)
-            if (!functionMap.containsKey("round")) {
-                List<FunctionSignature> roundSigs = new ArrayList<>();
-                roundSigs.add(new FunctionSignature("round", List.of("number"), "Rounds a number"));
-                roundSigs.add(new FunctionSignature("round", List.of("number", "integer"),
-                        "Rounds a number to specified decimal places"));
-                functionMap.put("round", roundSigs);
-            }
-
-            // Add 'property' secondary function (1-2 args)
+            // Add 'property' secondary function (1-2 args) — this is a SECONDARY_FUNCTIONS token
+            // in the ANTLR grammar, not a regular FUNCTION, so it's not in functions.json.
             if (!functionMap.containsKey("property")) {
                 List<FunctionSignature> propSigs = new ArrayList<>();
                 propSigs.add(new FunctionSignature("property", List.of("string"),
@@ -168,63 +157,6 @@ public class FunctionRegistry {
                 propSigs.add(new FunctionSignature("property", List.of("string", "string"),
                         "Get property value with scope"));
                 functionMap.put("property", propSigs);
-            }
-
-            // Add 'urlEncode' 2-arg overload if missing
-            List<FunctionSignature> urlEncodeSigs = functionMap.get("urlEncode");
-            if (urlEncodeSigs != null && urlEncodeSigs.size() == 1) {
-                urlEncodeSigs.add(new FunctionSignature("urlEncode", List.of("string", "string"),
-                        "Encodes a string for safe inclusion in a URL with charset"));
-            }
-
-            // Ensure 'formatDateTime' has 2-arg overload too
-            List<FunctionSignature> fmtSigs = functionMap.get("formatDateTime");
-            if (fmtSigs != null) {
-                boolean has2Arg = fmtSigs.stream().anyMatch(s -> s.getArity() == 2);
-                if (!has2Arg) {
-                    fmtSigs.add(new FunctionSignature("formatDateTime", List.of("string", "string"),
-                            "Transform the given time/date"));
-                }
-            }
-
-            // Ensure 'log' has 2-arg overload (base)
-            List<FunctionSignature> logSigs = functionMap.get("log");
-            if (logSigs != null) {
-                boolean has2Arg = logSigs.stream().anyMatch(s -> s.getArity() == 2);
-                if (!has2Arg) {
-                    logSigs.add(new FunctionSignature("log", List.of("number", "number"),
-                            "Returns the logarithm with specified base"));
-                }
-            }
-
-            // Ensure 'registry' has 2-arg overload (key, propertyKey)
-            List<FunctionSignature> regSigs = functionMap.get("registry");
-            if (regSigs != null) {
-                boolean has2Arg = regSigs.stream().anyMatch(s -> s.getArity() == 2);
-                if (!has2Arg) {
-                    regSigs.add(new FunctionSignature("registry", List.of("string", "string"),
-                            "Retrieve the registry value with property key"));
-                }
-            }
-
-            // Ensure 'xpath' has 2-arg overload
-            List<FunctionSignature> xpathSigs = functionMap.get("xpath");
-            if (xpathSigs != null) {
-                boolean has2Arg = xpathSigs.stream().anyMatch(s -> s.getArity() == 2);
-                if (!has2Arg) {
-                    xpathSigs.add(new FunctionSignature("xpath", List.of("string", "string"),
-                            "Evaluate XPATH expression with variable name"));
-                }
-            }
-
-            // Fix 'boolean' — functions.json is missing the "signature" field, so it gets
-            // loaded with arity 0. The actual function accepts 1 argument: boolean(value:any).
-            // Remove this override once functions.json is updated with the signature field.
-            List<FunctionSignature> boolSigs = functionMap.get("boolean");
-            if (boolSigs != null && boolSigs.size() == 1 && boolSigs.get(0).getArity() == 0) {
-                boolSigs.clear();
-                boolSigs.add(new FunctionSignature("boolean", List.of("any"),
-                        "Converts the value to a boolean"));
             }
 
         } catch (Exception e) {

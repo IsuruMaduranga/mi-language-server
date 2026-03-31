@@ -1196,4 +1196,121 @@ public class SynapseDiagnosticsParticipantTest {
         List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PropertyTypeMismatch");
         assertTrue(diags.isEmpty());
     }
+
+    // ===== P3-31: Rewrite mediator action validation =====
+
+    @Test
+    public void testRewriteActionSetMissingValue() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action type=\"set\" fragment=\"path\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testRewriteActionSetWithValue() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action type=\"set\" value=\"/new\" fragment=\"path\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testRewriteActionSetWithXpath() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action type=\"set\" xpath=\"get-property('uri')\" fragment=\"path\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testRewriteActionRemoveNoValueNeeded() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action type=\"remove\" fragment=\"query\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testRewriteActionReplaceMissingAll() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action type=\"replace\" fragment=\"path\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testRewriteActionReplaceWithRegex() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action type=\"replace\" regex=\"/old\" value=\"/new\" fragment=\"path\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testRewriteActionDefaultTypeNoValue() {
+        // No type attribute defaults to "set" — still needs value/xpath
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action fragment=\"path\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testRewriteActionAppendWithValue() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<rewrite><rewriterule><action type=\"append\" value=\"/suffix\" fragment=\"path\"/></rewriterule></rewrite>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testRewriteActionNotInsideRewriteRule() {
+        // <action> outside <rewriterule> should not be validated
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<action type=\"set\"/>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "RewriteActionMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P3-47: Validate mediator on-fail must have content =====
+
+    @Test
+    public void testValidateOnFailEmpty() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<validate><schema key=\"gov:schema.xsd\"/><on-fail/></validate>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ValidateOnFailEmpty");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testValidateOnFailWithMediator() {
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<validate><schema key=\"gov:schema.xsd\"/><on-fail><drop/></on-fail></validate>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ValidateOnFailEmpty");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testOnFailOutsideValidate() {
+        // <on-fail> outside <validate> should not be validated
+        String xml = "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<on-fail/>"
+                + "</sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ValidateOnFailEmpty");
+        assertTrue(diags.isEmpty());
+    }
 }
