@@ -15,6 +15,7 @@
 package org.eclipse.lemminx.extensions.synapse;
 
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.NewProjectResourceFinder;
+import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.ArtifactResource;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.RegistryResource;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.Resource;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.ResourceResponse;
@@ -34,7 +35,9 @@ import org.eclipse.lemminx.dom.DOMAttr;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +66,11 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
     private static final long ARTIFACT_CACHE_TTL_MS = 5000; // 5 seconds
     private final Map<String, CachedArtifactIndex> artifactIndexCache = new ConcurrentHashMap<>();
+
+    /** Template name -> absolute file path, populated during artifact index building. */
+    private volatile Map<String, String> templateFilePaths = java.util.Collections.emptyMap();
+    /** Artifact names that appear in multiple files (duplicates). */
+    private volatile Set<String> duplicateArtifactNames = java.util.Collections.emptySet();
 
     private static final Set<String> SYNAPSE_ROOT_ELEMENTS = new HashSet<>(Arrays.asList(
             "api", "proxy", "endpoint", "sequence", "inboundEndpoint", "template",
@@ -134,6 +142,9 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             Set<String> definedVariables = new HashSet<>();
             Set<String> knownArtifacts = buildArtifactNameIndex(xmlDocument, cancelChecker);
             validateElement(root, diagnostics, xmlDocument, definedVariables, knownArtifacts, cancelChecker);
+
+            // P1-19: Check if this document's root artifact name is a duplicate
+            validateDuplicateArtifactName(root, diagnostics);
         } else if (rootName != null && SYNAPSE_ROOT_ELEMENTS.contains(rootName) && namespace == null) {
             // Looks like a Synapse file but missing namespace (Issue 13)
             Range range = XMLPositionUtility.selectStartTagName(root);
@@ -209,6 +220,27 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 break;
             case "payloadFactory":
                 validatePayloadFactory(element, diagnostics, document);
+                break;
+            case "enrich":
+                validateEnrichCompatibility(element, diagnostics, document);
+                break;
+            case "throttle":
+                validateThrottleMediator(element, diagnostics, document);
+                break;
+            case "target":
+                validateCloneIterateTarget(element, diagnostics, document);
+                break;
+            case "store":
+                validateStoreMediator(element, diagnostics, knownArtifacts);
+                break;
+            case "schema":
+                validateSchemaKey(element, diagnostics, knownArtifacts);
+                break;
+            case "script":
+                validateScriptMediator(element, diagnostics, document);
+                break;
+            case "call-template":
+                validateCallTemplateParams(element, diagnostics);
                 break;
         }
 
@@ -610,6 +642,286 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
+     * P1-11: Enrich source-target type compatibility check.
+     */
+    private void validateEnrichCompatibility(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        DOMElement sourceElem = null;
+        DOMElement targetElem = null;
+        List<DOMNode> children = element.getChildren();
+        if (children == null) return;
+        for (DOMNode child : children) {
+            if (child instanceof DOMElement) {
+                String childName = ((DOMElement) child).getLocalName();
+                if ("source".equals(childName)) sourceElem = (DOMElement) child;
+                else if ("target".equals(childName)) targetElem = (DOMElement) child;
+            }
+        }
+        if (sourceElem == null || targetElem == null) return;
+
+        String sourceType = sourceElem.getAttribute("type");
+        String targetType = targetElem.getAttribute("type");
+        String targetAction = targetElem.getAttribute("action");
+        if (sourceType == null) sourceType = "custom";
+        if (targetType == null) targetType = "custom";
+
+        // Body-to-body with child action is circular
+        if ("body".equals(sourceType) && "body".equals(targetType) && "child".equals(targetAction)) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Enrich appending body to itself (source type='body', target type='body' action='child') " +
+                                "creates a circular reference.",
+                        DiagnosticSeverity.Warning, "EnrichCircularBodyReference");
+            }
+        }
+
+        // Envelope cannot be stored as property
+        if ("envelope".equals(sourceType) && "property".equals(targetType)) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Enrich source type='envelope' cannot be stored in a property target. " +
+                                "Use type='body' or type='custom' as the source instead.",
+                        DiagnosticSeverity.Warning, "EnrichIncompatibleSourceTarget");
+            }
+        }
+    }
+
+    /**
+     * P1-12: Throttle mediator must have a policy (inline or via key).
+     */
+    private void validateThrottleMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        boolean hasPolicy = false;
+        List<DOMNode> children = element.getChildren();
+        if (children != null) {
+            for (DOMNode child : children) {
+                if (child instanceof DOMElement && "policy".equals(((DOMElement) child).getLocalName())) {
+                    // Policy exists — check it has content (key attr or child elements)
+                    DOMElement policyElem = (DOMElement) child;
+                    if (policyElem.getAttribute("key") != null || hasContent(policyElem)) {
+                        hasPolicy = true;
+                    }
+                    break;
+                }
+            }
+        }
+        if (!hasPolicy) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Throttle mediator requires a <policy> child with either a 'key' attribute " +
+                                "or inline throttle policy content.",
+                        DiagnosticSeverity.Warning, "ThrottleMissingPolicy");
+            }
+        }
+    }
+
+    /**
+     * P1-13: Clone/iterate target must have sequence or endpoint.
+     */
+    private void validateCloneIterateTarget(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        // Only validate <target> inside <clone> or <iterate>
+        DOMNode parent = element.getParentNode();
+        if (parent == null || !(parent instanceof DOMElement)) return;
+        String parentName = ((DOMElement) parent).getLocalName();
+        if (!"clone".equals(parentName) && !"iterate".equals(parentName)) return;
+
+        // Check for: inline <sequence>, inline <endpoint>, sequence attr, endpoint attr
+        String sequenceAttr = element.getAttribute("sequence");
+        String endpointAttr = element.getAttribute("endpoint");
+        if (sequenceAttr != null || endpointAttr != null) return;
+
+        boolean hasInlineChild = false;
+        List<DOMNode> children = element.getChildren();
+        if (children != null) {
+            for (DOMNode child : children) {
+                if (child instanceof DOMElement) {
+                    String childName = ((DOMElement) child).getLocalName();
+                    if ("sequence".equals(childName) || "endpoint".equals(childName)) {
+                        hasInlineChild = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!hasInlineChild) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Target in '" + parentName + "' mediator must have at least one of: " +
+                                "inline <sequence>, inline <endpoint>, 'sequence' attribute, or 'endpoint' attribute.",
+                        DiagnosticSeverity.Warning, "CloneIterateTargetEmpty");
+            }
+        }
+    }
+
+    /**
+     * P1-15: Store mediator messageStore reference validation.
+     */
+    private void validateStoreMediator(DOMElement element, List<Diagnostic> diagnostics, Set<String> knownArtifacts) {
+        if (knownArtifacts == null) return;
+        String messageStore = element.getAttribute("messageStore");
+        if (messageStore != null && !messageStore.isEmpty() && !isExpression(messageStore)
+                && !knownArtifacts.contains(messageStore)) {
+            DOMAttr attr = element.getAttributeNode("messageStore");
+            if (attr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(attr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Referenced message store '" + messageStore + "' not found in the project. " +
+                                    "Ensure the message store exists or check for typos.",
+                            DiagnosticSeverity.Warning, "UnresolvedMessageStoreReference");
+                }
+            }
+        }
+    }
+
+    /**
+     * P1-16: Validate mediator schema key must be a registry resource.
+     */
+    private void validateSchemaKey(DOMElement element, List<Diagnostic> diagnostics, Set<String> knownArtifacts) {
+        // Only validate <schema> inside <validate>
+        DOMNode parent = element.getParentNode();
+        if (parent == null || !(parent instanceof DOMElement)
+                || !"validate".equals(((DOMElement) parent).getLocalName())) {
+            return;
+        }
+        if (knownArtifacts == null) return;
+        validateRegistryKeyRef(element, "key", "validation schema", diagnostics, knownArtifacts);
+    }
+
+    /**
+     * P1-17: Script mediator must have key attribute or inline content.
+     */
+    private void validateScriptMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        String key = element.getAttribute("key");
+        if (key != null) return; // Has key — valid
+
+        // Check for inline content (text or child elements)
+        if (!hasContent(element)) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Script mediator must have either a 'key' attribute referencing an external script " +
+                                "or inline script content.",
+                        DiagnosticSeverity.Error, "ScriptMissingContent");
+            }
+        }
+    }
+
+    /**
+     * P1-14: Validate call-template with-param names against template parameter declarations.
+     */
+    private void validateCallTemplateParams(DOMElement element, List<Diagnostic> diagnostics) {
+        String target = element.getAttribute("target");
+        if (target == null || target.isEmpty() || isExpression(target)) return;
+
+        String templatePath = templateFilePaths.get(target);
+        if (templatePath == null) return; // Template not found (cross-ref already warns)
+
+        // Parse template parameters from the file
+        Map<String, Boolean> templateParams = parseTemplateParameters(templatePath);
+        if (templateParams == null || templateParams.isEmpty()) return;
+
+        // Collect with-param names
+        Set<String> providedParams = new HashSet<>();
+        List<DOMNode> children = element.getChildren();
+        if (children != null) {
+            for (DOMNode child : children) {
+                if (child instanceof DOMElement && "with-param".equals(((DOMElement) child).getLocalName())) {
+                    String paramName = ((DOMElement) child).getAttribute("name");
+                    if (paramName != null) {
+                        providedParams.add(paramName);
+                        // Check for unknown parameter names
+                        if (!templateParams.containsKey(paramName)) {
+                            DOMAttr nameAttr = ((DOMElement) child).getAttributeNode("name");
+                            if (nameAttr != null) {
+                                Range range = XMLPositionUtility.selectAttributeValue(nameAttr);
+                                if (range != null) {
+                                    addDiagnostic(diagnostics, range,
+                                            "Parameter '" + paramName + "' is not declared in template '" + target +
+                                                    "'. Declared parameters: " + templateParams.keySet() + ".",
+                                            DiagnosticSeverity.Warning, "UnknownTemplateParameter");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for missing mandatory parameters
+        for (Map.Entry<String, Boolean> param : templateParams.entrySet()) {
+            if (param.getValue() && !providedParams.contains(param.getKey())) {
+                Range range = XMLPositionUtility.selectStartTagName(element);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Mandatory parameter '" + param.getKey() + "' of template '" + target +
+                                    "' is not provided via <with-param>.",
+                            DiagnosticSeverity.Error, "MissingMandatoryTemplateParameter");
+                }
+            }
+        }
+    }
+
+    /**
+     * Parses a template file to extract parameter declarations.
+     * Returns a map of parameter name -> isMandatory.
+     */
+    private Map<String, Boolean> parseTemplateParameters(String filePath) {
+        try {
+            java.io.File file = new java.io.File(filePath);
+            if (!file.exists()) return null;
+
+            String content = new String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8");
+            org.eclipse.lemminx.commons.TextDocument textDoc = new org.eclipse.lemminx.commons.TextDocument(content, filePath);
+            DOMDocument doc = org.eclipse.lemminx.dom.DOMParser.getInstance().parse(textDoc, null);
+            DOMElement root = doc.getDocumentElement();
+            if (root == null) return null;
+
+            Map<String, Boolean> params = new HashMap<>();
+            // Template parameters are direct children of the root <template> element
+            List<DOMNode> children = root.getChildren();
+            if (children != null) {
+                for (DOMNode child : children) {
+                    if (child instanceof DOMElement && "parameter".equals(((DOMElement) child).getLocalName())) {
+                        DOMElement paramElem = (DOMElement) child;
+                        String name = paramElem.getAttribute("name");
+                        if (name != null) {
+                            String isMandatory = paramElem.getAttribute("isMandatory");
+                            params.put(name, "true".equals(isMandatory));
+                        }
+                    }
+                }
+            }
+            return params;
+        } catch (Exception e) {
+            LOGGER.log(Level.FINE, "Could not parse template parameters from: " + filePath, e);
+            return null;
+        }
+    }
+
+    /**
+     * P1-19: Warn if the current document's root artifact name is duplicated in the project.
+     */
+    private void validateDuplicateArtifactName(DOMElement root, List<Diagnostic> diagnostics) {
+        if (duplicateArtifactNames.isEmpty()) return;
+        String name = root.getAttribute("name");
+        if (name != null && duplicateArtifactNames.contains(name)) {
+            DOMAttr nameAttr = root.getAttributeNode("name");
+            if (nameAttr != null) {
+                Range range = XMLPositionUtility.selectAttributeValue(nameAttr);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Artifact name '" + name + "' is defined in multiple files in this project. " +
+                                    "Duplicate names cause undefined behavior at runtime.",
+                            DiagnosticSeverity.Warning, "DuplicateArtifactName");
+                }
+            }
+        }
+    }
+
+    /**
      * Issue 7: Detect unreachable code after terminal mediators (respond, drop, loopback).
      */
     private void validateUnreachableCode(DOMElement container, List<Diagnostic> diagnostics, DOMDocument document) {
@@ -865,6 +1177,8 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         }
 
         Set<String> artifactNames = new HashSet<>();
+        Map<String, String> templatePaths = new HashMap<>();
+        Map<String, List<String>> nameToFiles = new HashMap<>();
         try {
             if (cancelChecker != null) {
                 cancelChecker.checkCanceled();
@@ -872,11 +1186,27 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             NewProjectResourceFinder resourceFinder = new NewProjectResourceFinder();
             Map<String, ResourceResponse> allResources = resourceFinder.findAllResources(projectPath);
 
-            for (ResourceResponse response : allResources.values()) {
+            for (Map.Entry<String, ResourceResponse> entry : allResources.entrySet()) {
+                String resourceType = entry.getKey();
+                ResourceResponse response = entry.getValue();
                 if (response.getResources() != null) {
                     for (Resource resource : response.getResources()) {
                         if (resource.getName() != null) {
                             artifactNames.add(resource.getName());
+                            // Track template file paths for parameter validation
+                            if (resource instanceof ArtifactResource &&
+                                    (resourceType.contains("emplate") || resourceType.contains("template"))) {
+                                String absPath = ((ArtifactResource) resource).getAbsolutePath();
+                                if (absPath != null) {
+                                    templatePaths.put(resource.getName(), absPath);
+                                }
+                            }
+                            // Track all artifact names for duplicate detection
+                            if (resource instanceof ArtifactResource) {
+                                String absPath = ((ArtifactResource) resource).getAbsolutePath();
+                                nameToFiles.computeIfAbsent(resource.getName(), k -> new ArrayList<>())
+                                        .add(absPath != null ? absPath : "unknown");
+                            }
                         }
                     }
                 }
@@ -906,7 +1236,17 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             return null;
         }
 
-        // Update cache
+        // Build duplicate names set
+        Set<String> duplicates = new HashSet<>();
+        for (Map.Entry<String, List<String>> nameEntry : nameToFiles.entrySet()) {
+            if (nameEntry.getValue().size() > 1) {
+                duplicates.add(nameEntry.getKey());
+            }
+        }
+
+        // Update instance-level fields and cache
+        this.templateFilePaths = templatePaths;
+        this.duplicateArtifactNames = duplicates;
         artifactIndexCache.put(projectPath, new CachedArtifactIndex(artifactNames, System.currentTimeMillis()));
         return artifactNames;
     }

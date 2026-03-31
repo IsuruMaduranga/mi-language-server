@@ -681,4 +681,147 @@ public class SynapseDiagnosticsParticipantTest {
         List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PayloadFactoryArgsMismatch");
         assertTrue(diags.isEmpty());
     }
+
+    // ===== P1-11: Enrich target-source compatibility =====
+
+    @Test
+    public void testEnrichBodyToBodyChild() {
+        String xml = synapseWrap("<enrich>"
+                + "<source type=\"body\"/>"
+                + "<target type=\"body\" action=\"child\"/>"
+                + "</enrich>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "EnrichCircularBodyReference");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testEnrichBodyToBodyReplace() {
+        // Replace (default action) is valid — only child/sibling is circular
+        String xml = synapseWrap("<enrich>"
+                + "<source type=\"body\"/>"
+                + "<target type=\"body\"/>"
+                + "</enrich>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "EnrichCircularBodyReference");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testEnrichEnvelopeToProperty() {
+        String xml = synapseWrap("<enrich>"
+                + "<source type=\"envelope\"/>"
+                + "<target type=\"property\" property=\"myProp\"/>"
+                + "</enrich>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "EnrichIncompatibleSourceTarget");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testEnrichValidCombination() {
+        String xml = synapseWrap("<enrich>"
+                + "<source type=\"custom\" xpath=\"//result\"/>"
+                + "<target type=\"body\"/>"
+                + "</enrich>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "EnrichCircularBodyReference");
+        assertTrue(diags.isEmpty());
+        diags = diagnosticsWithCode(diagnose(xml), "EnrichIncompatibleSourceTarget");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P1-12: Throttle mediator needs policy =====
+
+    @Test
+    public void testThrottleMissingPolicy() {
+        String xml = synapseWrap("<throttle id=\"my-throttle\">"
+                + "<onAccept><log/></onAccept>"
+                + "<onReject><drop/></onReject>"
+                + "</throttle>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ThrottleMissingPolicy");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testThrottleWithPolicyKey() {
+        String xml = synapseWrap("<throttle id=\"my-throttle\">"
+                + "<policy key=\"conf:/throttle-policy.xml\"/>"
+                + "<onAccept><log/></onAccept>"
+                + "<onReject><drop/></onReject>"
+                + "</throttle>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ThrottleMissingPolicy");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P1-13: Clone/iterate target must have sequence or endpoint =====
+
+    @Test
+    public void testCloneTargetEmpty() {
+        String xml = synapseWrap("<clone>"
+                + "<target to=\"http://example.com\"/>"
+                + "</clone>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "CloneIterateTargetEmpty");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testCloneTargetWithSequenceAttr() {
+        String xml = synapseWrap("<clone>"
+                + "<target sequence=\"mySeq\"/>"
+                + "</clone>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "CloneIterateTargetEmpty");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testCloneTargetWithInlineSequence() {
+        String xml = synapseWrap("<clone>"
+                + "<target><sequence><log/></sequence></target>"
+                + "</clone>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "CloneIterateTargetEmpty");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testIterateTargetEmpty() {
+        String xml = synapseWrap("<iterate expression=\"//items/item\">"
+                + "<target/>"
+                + "</iterate>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "CloneIterateTargetEmpty");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testTargetOutsideCloneNotValidated() {
+        // <target> inside <proxy> should not be validated
+        String xml = "<proxy xmlns=\"" + SYNAPSE_NS + "\" name=\"test\">"
+                + "<target><inSequence><respond/></inSequence></target>"
+                + "</proxy>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "CloneIterateTargetEmpty");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P1-17: Script mediator must have key or content =====
+
+    @Test
+    public void testScriptMissingContent() {
+        String xml = synapseWrap("<script language=\"js\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ScriptMissingContent");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testScriptWithKey() {
+        String xml = synapseWrap("<script language=\"js\" key=\"conf:/scripts/transform.js\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ScriptMissingContent");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testScriptWithInlineContent() {
+        String xml = synapseWrap("<script language=\"js\">mc.setPayloadJSON({});</script>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ScriptMissingContent");
+        assertTrue(diags.isEmpty());
+    }
 }
