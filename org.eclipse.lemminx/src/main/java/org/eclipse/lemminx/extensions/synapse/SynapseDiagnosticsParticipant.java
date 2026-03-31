@@ -127,8 +127,8 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         if (SYNAPSE_NS.equals(namespace)) {
             // Valid Synapse file — run all validations
             Set<String> definedVariables = new HashSet<>();
-            Set<String> knownArtifacts = buildArtifactNameIndex(xmlDocument);
-            validateElement(root, diagnostics, xmlDocument, definedVariables, knownArtifacts);
+            Set<String> knownArtifacts = buildArtifactNameIndex(xmlDocument, cancelChecker);
+            validateElement(root, diagnostics, xmlDocument, definedVariables, knownArtifacts, cancelChecker);
         } else if (rootName != null && SYNAPSE_ROOT_ELEMENTS.contains(rootName) && namespace == null) {
             // Looks like a Synapse file but missing namespace (Issue 13)
             Range range = XMLPositionUtility.selectStartTagName(root);
@@ -143,7 +143,11 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     private void validateElement(DOMNode node, List<Diagnostic> diagnostics, DOMDocument document,
-                                Set<String> definedVariables, Set<String> knownArtifacts) {
+                                Set<String> definedVariables, Set<String> knownArtifacts,
+                                CancelChecker cancelChecker) {
+        if (cancelChecker != null) {
+            cancelChecker.checkCanceled();
+        }
         if (!(node instanceof DOMElement)) {
             return;
         }
@@ -200,7 +204,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         List<DOMNode> children = element.getChildren();
         if (children != null) {
             for (DOMNode child : children) {
-                validateElement(child, diagnostics, document, definedVariables, knownArtifacts);
+                validateElement(child, diagnostics, document, definedVariables, knownArtifacts, cancelChecker);
             }
         }
     }
@@ -644,7 +648,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
      * Results are cached for ARTIFACT_CACHE_TTL_MS to avoid filesystem scanning on every keystroke.
      * Returns null if the project path cannot be determined.
      */
-    private Set<String> buildArtifactNameIndex(DOMDocument document) {
+    private Set<String> buildArtifactNameIndex(DOMDocument document, CancelChecker cancelChecker) {
         String projectPath = deriveProjectPath(document);
         if (projectPath == null) {
             return null;
@@ -658,6 +662,9 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
         Set<String> artifactNames = new HashSet<>();
         try {
+            if (cancelChecker != null) {
+                cancelChecker.checkCanceled();
+            }
             NewProjectResourceFinder resourceFinder = new NewProjectResourceFinder();
             Map<String, ResourceResponse> allResources = resourceFinder.findAllResources(projectPath);
 

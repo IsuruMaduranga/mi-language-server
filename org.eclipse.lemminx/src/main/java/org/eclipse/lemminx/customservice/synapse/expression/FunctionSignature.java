@@ -28,7 +28,7 @@ public class FunctionSignature {
 
     public FunctionSignature(String name, List<String> paramTypes, String description) {
         this.name = name;
-        this.paramTypes = Collections.unmodifiableList(paramTypes);
+        this.paramTypes = Collections.unmodifiableList(new java.util.ArrayList<>(paramTypes));
         this.description = description;
     }
 

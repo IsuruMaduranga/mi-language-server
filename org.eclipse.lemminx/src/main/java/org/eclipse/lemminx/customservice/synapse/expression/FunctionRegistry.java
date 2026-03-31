@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
  * Singleton registry that loads function signatures from functions.json and provides
@@ -148,6 +147,9 @@ public class FunctionRegistry {
                     functionMap.computeIfAbsent(funcName, k -> new ArrayList<>()).add(sig);
                 }
             }
+
+            // TODO: Remove hardcoded overrides below once functions.json is updated with correct signatures.
+            // These compensate for missing or incomplete entries in the JSON file.
 
             // Add 'round' with 1-2 args (present in grammar but not in functions.json with overloads)
             if (!functionMap.containsKey("round")) {

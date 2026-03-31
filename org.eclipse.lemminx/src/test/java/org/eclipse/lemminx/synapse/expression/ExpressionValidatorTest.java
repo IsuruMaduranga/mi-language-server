@@ -35,9 +35,16 @@ public class ExpressionValidatorTest {
 
     @Test
     public void testValidFunctionCallNoErrors() {
-        // Use toUpper (single overload, expects string) for clean arity+type check
         List<ExpressionError> errors = ExpressionValidator.validate("toUpper(\"hello\")");
         assertTrue(errors.isEmpty(), "toUpper with 1 string arg should produce no errors");
+    }
+
+    @Test
+    public void testMultiOverloadSameArityAcceptsValidType() {
+        // length has two overloads (string and array categories), both arity 1.
+        // A string literal should be accepted by the string overload.
+        List<ExpressionError> errors = ExpressionValidator.validate("length(\"hello\")");
+        assertTrue(errors.isEmpty(), "length with string arg should match the string overload");
     }
 
     @Test
@@ -168,14 +175,11 @@ public class ExpressionValidatorTest {
     @Test
     public void testWarningFlagPreserved() {
         // Filter expressions with issues produce warnings (not errors).
-        // payload[? @ > >] has consecutive operators, triggers addFilterWarning with warning=true
+        // payload[?(@ > >)] has consecutive operators, triggers addFilterWarning with warning=true
         List<ExpressionError> errors = ExpressionValidator.validate("payload[?(@ > >)]");
-        // Find warnings among the errors
+        assertFalse(errors.isEmpty(), "Filter expression should produce at least one diagnostic");
         boolean hasWarning = errors.stream().anyMatch(ExpressionError::isWarning);
-        if (!errors.isEmpty()) {
-            // If there are errors from this expression, at least one should be a warning
-            assertTrue(hasWarning, "Filter expression warnings should have isWarning()=true");
-        }
+        assertTrue(hasWarning, "Filter expression warnings should have isWarning()=true");
     }
 
     // ===== Hardcoded function overrides =====

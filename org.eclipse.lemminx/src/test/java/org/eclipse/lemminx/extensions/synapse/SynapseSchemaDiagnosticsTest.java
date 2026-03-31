@@ -24,16 +24,21 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for Synapse XSD schema validation.
- * Tests the required attribute changes (endpoint method/uri-template,
- * inbound sequence, throwError type/errorMessage).
- * Uses the production Synapse catalog for schema resolution.
+ * Tests the required attribute changes against both 430 and 440 schemas:
+ * - 430/440: endpoint method/uri-template, inbound sequence
+ * - 440 only: throwError type/errorMessage
  */
 public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
 
-    private static final String SYNAPSE_CATALOG = "src/main/resources/org/eclipse/lemminx/schemas/430/catalog.xml";
+    private static final String SYNAPSE_CATALOG_430 = "src/main/resources/org/eclipse/lemminx/schemas/430/catalog.xml";
+    private static final String SYNAPSE_CATALOG_440 = "src/main/resources/org/eclipse/lemminx/schemas/440/catalog.xml";
 
-    private void testSynapseDiagnostics(String xml, Diagnostic... expected) {
-        testDiagnosticsFor(xml, SYNAPSE_CATALOG, expected);
+    private void testSynapseDiagnostics430(String xml, Diagnostic... expected) {
+        testDiagnosticsFor(xml, SYNAPSE_CATALOG_430, expected);
+    }
+
+    private void testSynapseDiagnostics440(String xml, Diagnostic... expected) {
+        testDiagnosticsFor(xml, SYNAPSE_CATALOG_440, expected);
     }
 
     // ===== HTTPEndpoint required attributes =====
@@ -44,7 +49,7 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
                 + "  <http uri-template=\"http://localhost:9090/test\"/>\n"
                 + "</endpoint>";
         // method is now required — should produce cvc-complex-type.4
-        testSynapseDiagnostics(xml,
+        testSynapseDiagnostics430(xml,
                 d(1, 3, 1, 7, XMLSchemaErrorCode.cvc_complex_type_4));
     }
 
@@ -54,7 +59,7 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
                 + "  <http method=\"get\"/>\n"
                 + "</endpoint>";
         // uri-template is now required — should produce cvc-complex-type.4
-        testSynapseDiagnostics(xml,
+        testSynapseDiagnostics430(xml,
                 d(1, 3, 1, 7, XMLSchemaErrorCode.cvc_complex_type_4));
     }
 
@@ -71,7 +76,7 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
                 + "    </markForSuspension>\n"
                 + "  </http>\n"
                 + "</endpoint>";
-        testSynapseDiagnostics(xml);
+        testSynapseDiagnostics430(xml);
     }
 
     // ===== InboundEndpoint required sequence =====
@@ -85,7 +90,7 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
                 + "  </parameters>\n"
                 + "</inboundEndpoint>";
         // sequence is now required — should produce cvc-complex-type.4
-        testSynapseDiagnostics(xml,
+        testSynapseDiagnostics430(xml,
                 d(0, 1, 0, 16, XMLSchemaErrorCode.cvc_complex_type_4));
     }
 
@@ -97,7 +102,7 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
                 + "    <parameter name=\"inbound.http.port\">8085</parameter>\n"
                 + "  </parameters>\n"
                 + "</inboundEndpoint>";
-        testSynapseDiagnostics(xml);
+        testSynapseDiagnostics430(xml);
     }
 
     // ===== Valid complete API =====
@@ -112,6 +117,61 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
                 + "    </inSequence>\n"
                 + "  </resource>\n"
                 + "</api>";
-        testSynapseDiagnostics(xml);
+        testSynapseDiagnostics430(xml);
+    }
+
+    // ===== 440-specific: throwError required attributes =====
+
+    @Test
+    public void testThrowErrorMissingType440() throws Exception {
+        String xml = "<sequence xmlns=\"http://ws.apache.org/ns/synapse\" name=\"test\">\n"
+                + "  <throwError errorMessage=\"something failed\"/>\n"
+                + "</sequence>";
+        testSynapseDiagnostics440(xml,
+                d(1, 3, 1, 13, XMLSchemaErrorCode.cvc_complex_type_4));
+    }
+
+    @Test
+    public void testThrowErrorMissingErrorMessage440() throws Exception {
+        String xml = "<sequence xmlns=\"http://ws.apache.org/ns/synapse\" name=\"test\">\n"
+                + "  <throwError type=\"CUSTOM\"/>\n"
+                + "</sequence>";
+        testSynapseDiagnostics440(xml,
+                d(1, 3, 1, 13, XMLSchemaErrorCode.cvc_complex_type_4));
+    }
+
+    @Test
+    public void testThrowErrorValid440() throws Exception {
+        String xml = "<sequence xmlns=\"http://ws.apache.org/ns/synapse\" name=\"test\">\n"
+                + "  <throwError type=\"CUSTOM\" errorMessage=\"something failed\"/>\n"
+                + "</sequence>";
+        testSynapseDiagnostics440(xml);
+    }
+
+    // ===== 440: same endpoint/inbound rules apply =====
+
+    @Test
+    public void testHTTPEndpointMissingMethod440() throws Exception {
+        String xml = "<endpoint xmlns=\"http://ws.apache.org/ns/synapse\" name=\"testEP\">\n"
+                + "  <http uri-template=\"http://localhost:9090/test\"/>\n"
+                + "</endpoint>";
+        testSynapseDiagnostics440(xml,
+                d(1, 3, 1, 7, XMLSchemaErrorCode.cvc_complex_type_4));
+    }
+
+    @Test
+    public void testHTTPEndpointValid440() throws Exception {
+        String xml = "<endpoint xmlns=\"http://ws.apache.org/ns/synapse\" name=\"testEP\">\n"
+                + "  <http method=\"get\" uri-template=\"http://localhost:9090/test\">\n"
+                + "    <suspendOnFailure>\n"
+                + "      <initialDuration>-1</initialDuration>\n"
+                + "      <progressionFactor>1.0</progressionFactor>\n"
+                + "    </suspendOnFailure>\n"
+                + "    <markForSuspension>\n"
+                + "      <retriesBeforeSuspension>0</retriesBeforeSuspension>\n"
+                + "    </markForSuspension>\n"
+                + "  </http>\n"
+                + "</endpoint>";
+        testSynapseDiagnostics440(xml);
     }
 }

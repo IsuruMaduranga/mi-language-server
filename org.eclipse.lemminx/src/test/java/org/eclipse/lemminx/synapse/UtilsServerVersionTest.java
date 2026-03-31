@@ -80,6 +80,8 @@ public class UtilsServerVersionTest {
         // Non-existent project path with no pom.xml
         String result = Utils.getServerVersion("/nonexistent/path/12345", Constant.DEFAULT_MI_VERSION);
         assertNotNull(result, "Should return default, not null");
+        String expected = Constant.MI_SUPPORTED_VERSION_MAP.get(Constant.DEFAULT_MI_VERSION);
+        assertEquals(expected, result, "Should return the mapped default MI version");
     }
 
     @Test

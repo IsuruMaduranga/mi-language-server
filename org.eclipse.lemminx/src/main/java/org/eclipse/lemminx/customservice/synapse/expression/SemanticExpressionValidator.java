@@ -75,13 +75,17 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
                     "Function '%s' expects %s argument(s) but received %d. Usage: %s",
                     funcName, expectedStr, argCount, usage);
             errors.add(new ExpressionError(line, charPos, message, funcToken, null));
-        } else {
-            // Arity matches — check literal argument types
-            FunctionSignature matchingSig = overloads.stream()
+        } else if (args != null) {
+            // Arity matches — check literal argument types against all overloads with this arity.
+            // Accept the call if ANY overload is type-compatible (e.g., length has both
+            // string and array overloads with arity 1).
+            List<FunctionSignature> sameArityOverloads = overloads.stream()
                     .filter(s -> s.getArity() == argCount)
-                    .findFirst().orElse(null);
-            if (matchingSig != null && args != null) {
-                validateArgumentTypes(funcName, matchingSig, args, line, charPos);
+                    .collect(java.util.stream.Collectors.toList());
+            if (sameArityOverloads.size() == 1) {
+                validateArgumentTypes(funcName, sameArityOverloads.get(0), args, line, charPos);
+            } else if (sameArityOverloads.size() > 1) {
+                validateArgumentTypesMultiOverload(funcName, sameArityOverloads, args, line, charPos);
             }
         }
 
@@ -94,6 +98,11 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
         return visitChildren(ctx);
     }
 
+    /**
+     * Validates arity for secondary (chained) function calls like xpath("//foo").property("name").
+     * Type validation is intentionally omitted: the only secondary function is 'property',
+     * whose args are always strings (name and optional scope), so type mismatches are unlikely.
+     */
     private void validateSecondaryFunction(ExpressionParser.FunctionCallSuffixContext ctx) {
         Token funcToken = ctx.SECONDARY_FUNCTIONS().getSymbol();
         String funcName = funcToken.getText();
@@ -147,6 +156,54 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
                         message, argToken, null));
             }
         }
+    }
+
+    /**
+     * Validates argument types when multiple overloads share the same arity.
+     * Accepts the call if ANY overload is fully type-compatible with the literal args.
+     * Only reports an error if NO overload matches.
+     */
+    private void validateArgumentTypesMultiOverload(String funcName, List<FunctionSignature> overloads,
+                                                    List<ExpressionParser.ExpressionContext> args,
+                                                    int funcLine, int funcCharPos) {
+        // Collect literal types for each arg position (null = non-literal, skip)
+        String[] literalTypes = new String[args.size()];
+        boolean hasAnyLiteral = false;
+        for (int i = 0; i < args.size(); i++) {
+            literalTypes[i] = getLiteralType(args.get(i));
+            if (literalTypes[i] != null) {
+                hasAnyLiteral = true;
+            }
+        }
+        if (!hasAnyLiteral) {
+            return; // No literal args to type-check
+        }
+
+        // Check if any overload is fully compatible
+        for (FunctionSignature sig : overloads) {
+            if (isOverloadCompatible(sig, literalTypes)) {
+                return; // Found a matching overload
+            }
+        }
+
+        // No overload matched — report errors against the first overload for context
+        validateArgumentTypes(funcName, overloads.get(0), args, funcLine, funcCharPos);
+    }
+
+    private boolean isOverloadCompatible(FunctionSignature sig, String[] literalTypes) {
+        List<String> expectedTypes = sig.getParamTypes();
+        for (int i = 0; i < literalTypes.length && i < expectedTypes.size(); i++) {
+            if (literalTypes[i] == null) {
+                continue; // Non-literal, skip
+            }
+            if ("any".equals(expectedTypes.get(i))) {
+                continue;
+            }
+            if (!isTypeCompatible(expectedTypes.get(i), literalTypes[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
