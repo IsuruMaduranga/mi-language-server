@@ -174,4 +174,84 @@ public class SynapseSchemaDiagnosticsTest extends AbstractCacheBasedTest {
                 + "</endpoint>";
         testSynapseDiagnostics440(xml);
     }
+
+    // ===== P0-1: call-template with-param accepts expression =====
+
+    @Test
+    public void testWithParamExpressionValid430() throws Exception {
+        // Use a non-vars expression to avoid UndefinedVariable warning from SynapseDiagnosticsParticipant
+        String xml = "<sequence xmlns=\"http://ws.apache.org/ns/synapse\" name=\"test\">\n"
+                + "  <call-template target=\"MyTemplate\">\n"
+                + "    <with-param name=\"ep\" expression=\"${payload.ep}\"/>\n"
+                + "  </call-template>\n"
+                + "</sequence>";
+        testSynapseDiagnostics430(xml);
+    }
+
+    @Test
+    public void testWithParamValueValid430() throws Exception {
+        String xml = "<sequence xmlns=\"http://ws.apache.org/ns/synapse\" name=\"test\">\n"
+                + "  <call-template target=\"MyTemplate\">\n"
+                + "    <with-param name=\"ep\" value=\"HospitalEP\"/>\n"
+                + "  </call-template>\n"
+                + "</sequence>";
+        testSynapseDiagnostics430(xml);
+    }
+
+    // ===== P0-3: Task trigger interval/count numeric type =====
+
+    @Test
+    public void testTaskTriggerIntervalValid430() throws Exception {
+        String xml = "<task xmlns=\"http://ws.apache.org/ns/synapse\" name=\"MyTask\""
+                + " class=\"org.example.Task\" group=\"synapse.simple.quartz\">\n"
+                + "  <trigger interval=\"5\" count=\"10\"/>\n"
+                + "</task>";
+        testSynapseDiagnostics430(xml);
+    }
+
+    @Test
+    public void testTaskTriggerIntervalExpression430() throws Exception {
+        // Use {${...}} form which avoids UndefinedVariable check
+        String xml = "<task xmlns=\"http://ws.apache.org/ns/synapse\" name=\"MyTask\""
+                + " class=\"org.example.Task\" group=\"synapse.simple.quartz\">\n"
+                + "  <trigger interval=\"${payload.interval}\"/>\n"
+                + "</task>";
+        testSynapseDiagnostics430(xml);
+    }
+
+    @Test
+    public void testTaskTriggerIntervalNonNumeric430() throws Exception {
+        String xml = "<task xmlns=\"http://ws.apache.org/ns/synapse\" name=\"MyTask\""
+                + " class=\"org.example.Task\" group=\"synapse.simple.quartz\">\n"
+                + "  <trigger interval=\"abc\"/>\n"
+                + "</task>";
+        // "abc" is neither integer nor expression — produces two XSD errors on the value
+        testSynapseDiagnostics430(xml,
+                d(1, 20, 1, 25, XMLSchemaErrorCode.cvc_datatype_valid_1_2_3),
+                d(1, 20, 1, 25, XMLSchemaErrorCode.cvc_attribute_3));
+    }
+
+    @Test
+    public void testTaskTriggerCountNonNumeric430() throws Exception {
+        String xml = "<task xmlns=\"http://ws.apache.org/ns/synapse\" name=\"MyTask\""
+                + " class=\"org.example.Task\" group=\"synapse.simple.quartz\">\n"
+                + "  <trigger count=\"xyz\" cron=\"0 0 * * * ?\"/>\n"
+                + "</task>";
+        testSynapseDiagnostics430(xml,
+                d(1, 17, 1, 22, XMLSchemaErrorCode.cvc_datatype_valid_1_2_3),
+                d(1, 17, 1, 22, XMLSchemaErrorCode.cvc_attribute_3));
+    }
+
+    // ===== P0-3: 440 versions =====
+
+    @Test
+    public void testTaskTriggerIntervalNonNumeric440() throws Exception {
+        String xml = "<task xmlns=\"http://ws.apache.org/ns/synapse\" name=\"MyTask\""
+                + " class=\"org.example.Task\" group=\"synapse.simple.quartz\">\n"
+                + "  <trigger interval=\"abc\"/>\n"
+                + "</task>";
+        testSynapseDiagnostics440(xml,
+                d(1, 20, 1, 25, XMLSchemaErrorCode.cvc_datatype_valid_1_2_3),
+                d(1, 20, 1, 25, XMLSchemaErrorCode.cvc_attribute_3));
+    }
 }

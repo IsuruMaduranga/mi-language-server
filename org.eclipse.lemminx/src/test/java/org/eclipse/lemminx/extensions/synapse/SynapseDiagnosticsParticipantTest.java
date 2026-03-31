@@ -463,4 +463,222 @@ public class SynapseDiagnosticsParticipantTest {
         List<Diagnostic> diags = diagnose(xml);
         assertTrue(diags.isEmpty(), "Wrong namespace should produce zero diagnostics");
     }
+
+    // ===== P0-1: with-param value or expression =====
+
+    @Test
+    public void testWithParamMissingBothValueAndExpression() {
+        String xml = synapseWrap("<call-template target=\"MyTemplate\">"
+                + "<with-param name=\"ep\"/>"
+                + "</call-template>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WithParamMissingValueOrExpression");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+        assertTrue(diags.get(0).getMessage().contains("'ep'"));
+    }
+
+    @Test
+    public void testWithParamWithValue() {
+        String xml = synapseWrap("<call-template target=\"MyTemplate\">"
+                + "<with-param name=\"ep\" value=\"HospitalEP\"/>"
+                + "</call-template>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WithParamMissingValueOrExpression");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testWithParamWithExpression() {
+        String xml = synapseWrap("<call-template target=\"MyTemplate\">"
+                + "<with-param name=\"ep\" expression=\"${vars.ep}\"/>"
+                + "</call-template>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WithParamMissingValueOrExpression");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testMultipleWithParamsMixedValidity() {
+        String xml = synapseWrap("<call-template target=\"MyTemplate\">"
+                + "<with-param name=\"good\" value=\"ok\"/>"
+                + "<with-param name=\"bad\"/>"
+                + "</call-template>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WithParamMissingValueOrExpression");
+        assertEquals(1, diags.size());
+        assertTrue(diags.get(0).getMessage().contains("'bad'"));
+    }
+
+    // ===== P0-2: Task trigger scheduling =====
+
+    @Test
+    public void testTriggerMissingSchedule() {
+        String xml = "<task xmlns=\"" + SYNAPSE_NS + "\" name=\"MyTask\" class=\"com.example.Task\" group=\"synapse.simple.quartz\">"
+                + "<trigger/>"
+                + "</task>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "TriggerMissingSchedule");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testTriggerWithInterval() {
+        String xml = "<task xmlns=\"" + SYNAPSE_NS + "\" name=\"MyTask\" class=\"com.example.Task\" group=\"synapse.simple.quartz\">"
+                + "<trigger interval=\"5\"/>"
+                + "</task>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "TriggerMissingSchedule");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testTriggerWithCron() {
+        String xml = "<task xmlns=\"" + SYNAPSE_NS + "\" name=\"MyTask\" class=\"com.example.Task\" group=\"synapse.simple.quartz\">"
+                + "<trigger cron=\"0 0/5 * * * ?\"/>"
+                + "</task>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "TriggerMissingSchedule");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testTriggerWithOnce() {
+        String xml = "<task xmlns=\"" + SYNAPSE_NS + "\" name=\"MyTask\" class=\"com.example.Task\" group=\"synapse.simple.quartz\">"
+                + "<trigger once=\"true\"/>"
+                + "</task>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "TriggerMissingSchedule");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testTriggerOutsideTaskNotValidated() {
+        // <trigger> not inside <task> should be ignored
+        String xml = synapseWrap("<trigger/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "TriggerMissingSchedule");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P0-5: DB parameter value or expression =====
+
+    @Test
+    public void testDbParameterMissingValue() {
+        String xml = synapseWrap("<dblookup>"
+                + "<connection/>"
+                + "<statement>"
+                + "<sql>SELECT * FROM users WHERE id = ?</sql>"
+                + "<parameter type=\"INTEGER\"/>"
+                + "</statement>"
+                + "</dblookup>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DbParameterMissingValue");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testDbParameterWithValue() {
+        String xml = synapseWrap("<dblookup>"
+                + "<connection/>"
+                + "<statement>"
+                + "<sql>SELECT * FROM users WHERE id = ?</sql>"
+                + "<parameter type=\"INTEGER\" value=\"1\"/>"
+                + "</statement>"
+                + "</dblookup>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DbParameterMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testDbParameterWithExpression() {
+        String xml = synapseWrap("<dblookup>"
+                + "<connection/>"
+                + "<statement>"
+                + "<sql>SELECT * FROM users WHERE id = ?</sql>"
+                + "<parameter type=\"INTEGER\" expression=\"${payload.id}\"/>"
+                + "</statement>"
+                + "</dblookup>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DbParameterMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testDbParameterOutsideStatementNotValidated() {
+        // <parameter> under <parameters> (inbound endpoint) should be ignored
+        String xml = "<inboundEndpoint xmlns=\"" + SYNAPSE_NS + "\" name=\"test\" protocol=\"http\" sequence=\"testSeq\">"
+                + "<parameters>"
+                + "<parameter name=\"inbound.http.port\">8085</parameter>"
+                + "</parameters>"
+                + "</inboundEndpoint>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DbParameterMissingValue");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== P0-6: PayloadFactory args mismatch =====
+
+    @Test
+    public void testPayloadFactoryArgsMismatch() {
+        String xml = synapseWrap("<payloadFactory media-type=\"json\">"
+                + "<format>{\"name\": \"$1\", \"age\": \"$2\", \"city\": \"$3\"}</format>"
+                + "<args>"
+                + "<arg expression=\"${payload.name}\"/>"
+                + "<arg expression=\"${payload.age}\"/>"
+                + "</args>"
+                + "</payloadFactory>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PayloadFactoryArgsMismatch");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+        assertTrue(diags.get(0).getMessage().contains("$3"));
+        assertTrue(diags.get(0).getMessage().contains("2 arg(s)"));
+    }
+
+    @Test
+    public void testPayloadFactoryArgsMatch() {
+        String xml = synapseWrap("<payloadFactory media-type=\"json\">"
+                + "<format>{\"name\": \"$1\", \"age\": \"$2\"}</format>"
+                + "<args>"
+                + "<arg expression=\"${payload.name}\"/>"
+                + "<arg expression=\"${payload.age}\"/>"
+                + "</args>"
+                + "</payloadFactory>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PayloadFactoryArgsMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPayloadFactoryNoPlaceholders() {
+        String xml = synapseWrap("<payloadFactory media-type=\"json\">"
+                + "<format>{\"status\": \"ok\"}</format>"
+                + "<args/>"
+                + "</payloadFactory>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PayloadFactoryArgsMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPayloadFactoryFreemarkerSkipped() {
+        String xml = synapseWrap("<payloadFactory media-type=\"json\" template-type=\"freemarker\">"
+                + "<format>{\"name\": \"$1\"}</format>"
+                + "</payloadFactory>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PayloadFactoryArgsMismatch");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPayloadFactoryNoArgsElement() {
+        String xml = synapseWrap("<payloadFactory media-type=\"json\">"
+                + "<format>{\"name\": \"$1\", \"age\": \"$2\"}</format>"
+                + "</payloadFactory>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PayloadFactoryArgsMismatch");
+        assertEquals(1, diags.size());
+        assertTrue(diags.get(0).getMessage().contains("$2"));
+        assertTrue(diags.get(0).getMessage().contains("0 arg(s)"));
+    }
+
+    @Test
+    public void testPayloadFactoryExtraArgsNoWarning() {
+        // Extra args are not a problem — only missing args for used placeholders
+        String xml = synapseWrap("<payloadFactory media-type=\"json\">"
+                + "<format>{\"name\": \"$1\"}</format>"
+                + "<args>"
+                + "<arg expression=\"${payload.name}\"/>"
+                + "<arg expression=\"${payload.extra}\"/>"
+                + "</args>"
+                + "</payloadFactory>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "PayloadFactoryArgsMismatch");
+        assertTrue(diags.isEmpty());
+    }
 }

@@ -37,8 +37,8 @@
 
             <xs:element name="trigger" minOccurs="1" maxOccurs="1">
                 <xs:complexType>
-                    <xs:attribute name="interval" type="xs:string" use="optional"/>
-                    <xs:attribute name="count" type="xs:string" use="optional"/>
+                    <xs:attribute name="interval" type="integerOrExpression" use="optional"/>
+                    <xs:attribute name="count" type="integerOrExpression" use="optional"/>
                     <xs:attribute name="once" fixed="true" use="optional"/>
                     <xs:attribute name="cron" type="xs:string" use="optional"/>
                 </xs:complexType>

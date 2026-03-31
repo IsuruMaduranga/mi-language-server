@@ -99,6 +99,11 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     );
 
     /**
+     * Regex to find $N placeholders in PayloadFactory format strings.
+     */
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$(\\d+)");
+
+    /**
      * Elements whose 'key' attribute references a named artifact (endpoint, sequence, etc.).
      */
     private static final Set<String> KEY_REF_ELEMENTS = new HashSet<>(Arrays.asList(
@@ -192,6 +197,18 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 break;
             case "source":
                 validateEnrichSource(element, diagnostics, document);
+                break;
+            case "with-param":
+                validateWithParam(element, diagnostics, document);
+                break;
+            case "trigger":
+                validateTaskTrigger(element, diagnostics, document);
+                break;
+            case "parameter":
+                validateDbParameter(element, diagnostics, document);
+                break;
+            case "payloadFactory":
+                validatePayloadFactory(element, diagnostics, document);
                 break;
         }
 
@@ -424,6 +441,175 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
+     * P0-1: with-param must have either 'value' or 'expression' attribute.
+     */
+    private void validateWithParam(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        String value = element.getAttribute("value");
+        String expression = element.getAttribute("expression");
+        if (value == null && expression == null) {
+            String paramName = element.getAttribute("name");
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "with-param" + (paramName != null ? " '" + paramName + "'" : "") +
+                                " requires either a 'value' or 'expression' attribute.",
+                        DiagnosticSeverity.Error, "WithParamMissingValueOrExpression");
+            }
+        }
+    }
+
+    /**
+     * P0-2: Task trigger must have at least one scheduling mechanism.
+     */
+    private void validateTaskTrigger(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        // Only validate <trigger> inside <task>
+        DOMNode parent = element.getParentNode();
+        if (parent == null || !(parent instanceof DOMElement) ||
+                !"task".equals(((DOMElement) parent).getLocalName())) {
+            return;
+        }
+        String interval = element.getAttribute("interval");
+        String count = element.getAttribute("count");
+        String once = element.getAttribute("once");
+        String cron = element.getAttribute("cron");
+        if (interval == null && count == null && once == null && cron == null) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Task trigger must have at least one scheduling attribute: " +
+                                "'interval', 'count', 'once', or 'cron'.",
+                        DiagnosticSeverity.Error, "TriggerMissingSchedule");
+            }
+        }
+    }
+
+    /**
+     * P0-5: DB parameter (under statement) must have 'value' or 'expression'.
+     */
+    private void validateDbParameter(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        // Only validate <parameter> under <statement>
+        DOMNode parent = element.getParentNode();
+        if (parent == null || !(parent instanceof DOMElement) ||
+                !"statement".equals(((DOMElement) parent).getLocalName())) {
+            return;
+        }
+        String value = element.getAttribute("value");
+        String expression = element.getAttribute("expression");
+        if (value == null && expression == null) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "DB parameter requires a 'value' or 'expression' attribute.",
+                        DiagnosticSeverity.Error, "DbParameterMissingValue");
+            }
+        }
+    }
+
+    /**
+     * P0-6: PayloadFactory args count must match format $N placeholders.
+     */
+    private void validatePayloadFactory(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        // Skip freemarker templates — they use different placeholder syntax
+        String templateType = element.getAttribute("template-type");
+        if ("freemarker".equals(templateType)) {
+            return;
+        }
+
+        DOMElement formatElement = null;
+        DOMElement argsElement = null;
+        List<DOMNode> children = element.getChildren();
+        if (children == null) return;
+        for (DOMNode child : children) {
+            if (child instanceof DOMElement) {
+                String childName = ((DOMElement) child).getLocalName();
+                if ("format".equals(childName)) {
+                    formatElement = (DOMElement) child;
+                } else if ("args".equals(childName)) {
+                    argsElement = (DOMElement) child;
+                }
+            }
+        }
+
+        if (formatElement == null) return;
+
+        // Get format text content (may include child XML for xml payloads)
+        String formatText = getFullTextContent(formatElement);
+        if (formatText == null || formatText.isEmpty()) return;
+
+        // Find the highest $N placeholder index
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(formatText);
+        int maxPlaceholder = 0;
+        while (matcher.find()) {
+            int idx = Integer.parseInt(matcher.group(1));
+            if (idx > maxPlaceholder) {
+                maxPlaceholder = idx;
+            }
+        }
+
+        if (maxPlaceholder == 0) return; // No placeholders found
+
+        // Count <arg> children
+        int argCount = 0;
+        if (argsElement != null) {
+            List<DOMNode> argsChildren = argsElement.getChildren();
+            if (argsChildren != null) {
+                for (DOMNode argChild : argsChildren) {
+                    if (argChild instanceof DOMElement && "arg".equals(((DOMElement) argChild).getLocalName())) {
+                        argCount++;
+                    }
+                }
+            }
+        }
+
+        if (maxPlaceholder > argCount) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "PayloadFactory format uses placeholder $" + maxPlaceholder +
+                                " but only " + argCount + " arg(s) provided. " +
+                                "Add the missing arg(s) or remove unused placeholders.",
+                        DiagnosticSeverity.Warning, "PayloadFactoryArgsMismatch");
+            }
+        }
+    }
+
+    /**
+     * Returns the full text content of an element, including text within child elements.
+     * Useful for payloadFactory format elements that may have XML child content.
+     */
+    private String getFullTextContent(DOMElement element) {
+        StringBuilder sb = new StringBuilder();
+        collectTextContent(element, sb);
+        return sb.toString();
+    }
+
+    private void collectTextContent(DOMNode node, StringBuilder sb) {
+        List<DOMNode> children = node.getChildren();
+        if (children == null) return;
+        for (DOMNode child : children) {
+            if (child.isText()) {
+                String text = child.getTextContent();
+                if (text != null) {
+                    sb.append(text);
+                }
+            } else if (child instanceof DOMElement) {
+                // For XML payloads, include attribute values and recurse
+                DOMElement childElem = (DOMElement) child;
+                List<DOMAttr> attrs = childElem.getAttributeNodes();
+                if (attrs != null) {
+                    for (DOMAttr attr : attrs) {
+                        String val = attr.getValue();
+                        if (val != null) {
+                            sb.append(val);
+                        }
+                    }
+                }
+                collectTextContent(child, sb);
+            }
+        }
+    }
+
+    /**
      * Issue 7: Detect unreachable code after terminal mediators (respond, drop, loopback).
      */
     private void validateUnreachableCode(DOMElement container, List<Diagnostic> diagnostics, DOMDocument document) {
@@ -592,6 +778,24 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                                 "Referenced error sequence '" + onError + "' not found in the project. " +
                                         "Ensure the sequence exists or check for typos.",
                                 DiagnosticSeverity.Warning, "UnresolvedArtifactReference");
+                    }
+                }
+            }
+        }
+
+        // Check 'configKey' attribute on connector operations (elements with "." in name)
+        if (name.contains(".")) {
+            String configKey = element.getAttribute("configKey");
+            if (configKey != null && !configKey.isEmpty() && !isExpression(configKey)
+                    && !knownArtifacts.contains(configKey)) {
+                DOMAttr configKeyAttr = element.getAttributeNode("configKey");
+                if (configKeyAttr != null) {
+                    Range range = XMLPositionUtility.selectAttributeValue(configKeyAttr);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Referenced connection '" + configKey + "' not found in the project. " +
+                                        "Ensure the local entry for this connection exists or check for typos.",
+                                DiagnosticSeverity.Warning, "UnresolvedConfigKeyReference");
                     }
                 }
             }

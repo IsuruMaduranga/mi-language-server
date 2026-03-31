@@ -340,15 +340,19 @@ public class ConnectorReader {
                         continue;
                     }
                     JsonObject value = element.getAsJsonObject(Constant.VALUE);
-                    if (value.has(Constant.NAME) && value.has(Constant.REQUIRED)) {
+                    if (value.has(Constant.NAME)) {
                         String paramName = value.get(Constant.NAME).getAsString();
-                        boolean required = value.get(Constant.REQUIRED).getAsBoolean();
-                        if (required) {
-                            for (OperationParameter param : action.getParameters()) {
-                                if (paramName.equals(param.getName())) {
+                        for (OperationParameter param : action.getParameters()) {
+                            if (paramName.equals(param.getName())) {
+                                if (value.has(Constant.REQUIRED) &&
+                                        value.get(Constant.REQUIRED).getAsBoolean()) {
                                     param.setRequired(true);
-                                    break;
                                 }
+                                if (value.has(Constant.INPUT_TYPE)) {
+                                    String inputType = value.get(Constant.INPUT_TYPE).getAsString();
+                                    param.setXsdType(mapInputTypeToXsd(inputType));
+                                }
+                                break;
                             }
                         }
                     }
@@ -356,6 +360,25 @@ public class ConnectorReader {
             } catch (Exception e) {
                 log.log(Level.WARNING, "Error reading UI schema for required flags: " + action.getName(), e);
             }
+        }
+    }
+
+    /**
+     * Maps a UI schema inputType to the appropriate XSD type for schema generation.
+     */
+    private static String mapInputTypeToXsd(String inputType) {
+        if (inputType == null) {
+            return "xs:string";
+        }
+        switch (inputType) {
+            case "number":
+            case "integer":
+                return "integerOrExpression";
+            case "boolean":
+            case "booleanOrExpression":
+                return "xs:boolean";
+            default:
+                return "xs:string";
         }
     }
 

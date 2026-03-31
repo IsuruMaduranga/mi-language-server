@@ -19,6 +19,7 @@ public class OperationParameter {
     private String name;
     private String description;
     private boolean required;
+    private String xsdType = "xs:string";
 
     public OperationParameter(String name, String description) {
 
@@ -50,5 +51,15 @@ public class OperationParameter {
     public void setRequired(boolean required) {
 
         this.required = required;
+    }
+
+    public String getXsdType() {
+
+        return xsdType;
+    }
+
+    public void setXsdType(String xsdType) {
+
+        this.xsdType = xsdType;
     }
 }
