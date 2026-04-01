@@ -471,10 +471,11 @@ public class SynapseDiagnosticsParticipantTest {
     }
 
     @Test
-    public void testWrongNamespaceSkipped() {
+    public void testWrongNamespaceDetected() {
         String xml = "<api xmlns=\"http://example.com/wrong\" name=\"test\" context=\"/test\"/>";
-        List<Diagnostic> diags = diagnose(xml);
-        assertTrue(diags.isEmpty(), "Wrong namespace should produce zero diagnostics");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WrongSynapseNamespace");
+        assertEquals(1, diags.size(), "Wrong namespace should produce WrongSynapseNamespace warning");
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
     }
 
     // ===== P0-1: with-param value or expression =====
@@ -1326,4 +1327,176 @@ public class SynapseDiagnosticsParticipantTest {
         List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ValidateOnFailEmpty");
         assertTrue(diags.isEmpty());
     }
+
+    // ===== Wrong namespace detection =====
+
+    @Test
+    public void testWrongNamespace() {
+        String xml = "<api xmlns=\"http://wrong.namespace.com/synapse\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" uri-template=\"/test\"><inSequence><respond/></inSequence></resource>"
+                + "</api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WrongSynapseNamespace");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+        assertTrue(diags.get(0).getMessage().contains("http://wrong.namespace.com/synapse"));
+    }
+
+    @Test
+    public void testWrongNamespaceOnSequence() {
+        String xml = "<sequence xmlns=\"http://example.com/wrong\" name=\"test\"><respond/></sequence>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WrongSynapseNamespace");
+        assertEquals(1, diags.size());
+    }
+
+    @Test
+    public void testCorrectNamespaceNoWrongWarning() {
+        String xml = "<api xmlns=\"" + SYNAPSE_NS + "\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" uri-template=\"/test\"><inSequence><respond/></inSequence></resource>"
+                + "</api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WrongSynapseNamespace");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testNonSynapseRootNoWrongWarning() {
+        // A non-Synapse root element should not trigger wrong namespace warning
+        String xml = "<beans xmlns=\"http://www.springframework.org/schema/beans\"/>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "WrongSynapseNamespace");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== Resource with both uri-template and url-mapping =====
+
+    @Test
+    public void testResourceBothUriTemplateAndUrlMapping() {
+        String xml = "<api xmlns=\"" + SYNAPSE_NS + "\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" uri-template=\"/doctors\" url-mapping=\"/doctors\">"
+                + "<inSequence><respond/></inSequence></resource></api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ResourceBothUriTemplateAndUrlMapping");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+        assertTrue(diags.get(0).getMessage().contains("url-mapping"));
+    }
+
+    @Test
+    public void testResourceOnlyUriTemplateNoBothWarning() {
+        String xml = "<api xmlns=\"" + SYNAPSE_NS + "\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" uri-template=\"/doctors\">"
+                + "<inSequence><respond/></inSequence></resource></api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ResourceBothUriTemplateAndUrlMapping");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== Variable with both value and expression =====
+
+    @Test
+    public void testVariableBothValueAndExpression() {
+        String xml = synapseWrap("<variable name=\"x\" type=\"STRING\" value=\"hello\" expression=\"${payload.x}\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BothValueAndExpression");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+        assertTrue(diags.get(0).getMessage().contains("'x'"));
+    }
+
+    @Test
+    public void testVariableOnlyValueNoBothWarning() {
+        String xml = synapseWrap("<variable name=\"x\" type=\"STRING\" value=\"hello\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BothValueAndExpression");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testVariableOnlyExpressionNoBothWarning() {
+        String xml = synapseWrap("<variable name=\"x\" type=\"STRING\" expression=\"${payload.x}\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BothValueAndExpression");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testPropertyBothValueAndExpression() {
+        String xml = synapseWrap("<property name=\"x\" value=\"hello\" expression=\"${payload.x}\"/>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BothValueAndExpression");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testPropertyInsideLogNoBothWarning() {
+        // <property> inside <log> should not trigger this warning
+        String xml = synapseWrap("<log level=\"custom\"><property name=\"x\" value=\"hello\" expression=\"${payload.x}\"/></log>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "BothValueAndExpression");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== ForEach missing collection or expression =====
+
+    @Test
+    public void testForEachMissingBothAttributes() {
+        String xml = synapseWrap("<foreach><sequence><log/></sequence></foreach>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ForEachMissingCollectionOrExpression");
+        assertEquals(1, diags.size());
+        assertEquals(DiagnosticSeverity.Error, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testForEachWithCollectionNoError() {
+        String xml = synapseWrap("<foreach collection=\"${payload.items}\"><sequence><log/></sequence></foreach>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ForEachMissingCollectionOrExpression");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testForEachWithExpressionNoError() {
+        String xml = synapseWrap("<foreach expression=\"//items\"><sequence><log/></sequence></foreach>");
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "ForEachMissingCollectionOrExpression");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== Duplicate API resource URI-template =====
+
+    @Test
+    public void testDuplicateResourceUriTemplate() {
+        String xml = "<api xmlns=\"" + SYNAPSE_NS + "\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" uri-template=\"/doctors\"><inSequence><respond/></inSequence></resource>"
+                + "<resource methods=\"GET\" uri-template=\"/doctors\"><inSequence><respond/></inSequence></resource>"
+                + "</api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DuplicateResourceUriTemplate");
+        assertEquals(2, diags.size());
+        assertEquals(DiagnosticSeverity.Warning, diags.get(0).getSeverity());
+    }
+
+    @Test
+    public void testDuplicateResourceSamePathDifferentMethods() {
+        // Same path but different methods — NOT a duplicate
+        String xml = "<api xmlns=\"" + SYNAPSE_NS + "\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" uri-template=\"/doctors\"><inSequence><respond/></inSequence></resource>"
+                + "<resource methods=\"POST\" uri-template=\"/doctors\"><inSequence><respond/></inSequence></resource>"
+                + "</api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DuplicateResourceUriTemplate");
+        assertTrue(diags.isEmpty());
+    }
+
+    @Test
+    public void testDuplicateResourceUrlMapping() {
+        String xml = "<api xmlns=\"" + SYNAPSE_NS + "\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" url-mapping=\"/doctors/*\"><inSequence><respond/></inSequence></resource>"
+                + "<resource methods=\"GET\" url-mapping=\"/doctors/*\"><inSequence><respond/></inSequence></resource>"
+                + "</api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DuplicateResourceUriTemplate");
+        assertEquals(2, diags.size());
+    }
+
+    @Test
+    public void testUniqueResourcesNoDuplicate() {
+        String xml = "<api xmlns=\"" + SYNAPSE_NS + "\" name=\"TestAPI\" context=\"/test\">"
+                + "<resource methods=\"GET\" uri-template=\"/doctors\"><inSequence><respond/></inSequence></resource>"
+                + "<resource methods=\"GET\" uri-template=\"/patients\"><inSequence><respond/></inSequence></resource>"
+                + "</api>";
+        List<Diagnostic> diags = diagnosticsWithCode(diagnose(xml), "DuplicateResourceUriTemplate");
+        assertTrue(diags.isEmpty());
+    }
+
+    // ===== New-pattern hints (not testable via unit tests since they require project path) =====
+    // Hints are gated on is440Plus which requires Utils.getServerVersion() with a real pom.xml.
+    // Integration tests in the MI extension validate hint behavior end-to-end.
 }

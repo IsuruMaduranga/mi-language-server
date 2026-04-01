@@ -14,6 +14,8 @@
 
 package org.eclipse.lemminx.extensions.synapse;
 
+import org.eclipse.lemminx.customservice.synapse.utils.Constant;
+import org.eclipse.lemminx.customservice.synapse.utils.Utils;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.NewProjectResourceFinder;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.ArtifactResource;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.pojo.RegistryResource;
@@ -161,7 +163,20 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             // Valid Synapse file — run all validations
             Set<String> definedVariables = new HashSet<>();
             Set<String> knownArtifacts = buildArtifactNameIndex(xmlDocument, cancelChecker);
-            validateElement(root, diagnostics, xmlDocument, definedVariables, knownArtifacts, cancelChecker);
+
+            // Detect MI runtime version for new-pattern hints
+            String projectPath = deriveProjectPath(xmlDocument);
+            boolean is440Plus = false;
+            if (projectPath != null) {
+                try {
+                    String version = Utils.getServerVersion(projectPath, Constant.DEFAULT_MI_VERSION);
+                    is440Plus = version != null && !Constant.MI_430_VERSION.equals(version);
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINE, "Could not detect MI runtime version for hints", e);
+                }
+            }
+
+            validateElement(root, diagnostics, xmlDocument, definedVariables, knownArtifacts, is440Plus, cancelChecker);
 
             // P1-19: Check if this document's root artifact name is a duplicate
             validateDuplicateArtifactName(root, diagnostics);
@@ -175,12 +190,23 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                                 "Add xmlns=\"http://ws.apache.org/ns/synapse\" to enable validation.",
                         DiagnosticSeverity.Warning, "MissingSynapseNamespace");
             }
+        } else if (rootName != null && SYNAPSE_ROOT_ELEMENTS.contains(rootName)
+                && namespace != null && !SYNAPSE_NS.equals(namespace)) {
+            // Synapse root element with wrong namespace
+            Range range = XMLPositionUtility.selectStartTagName(root);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Root element '" + rootName + "' has namespace '" + namespace +
+                                "' but Synapse requires 'http://ws.apache.org/ns/synapse'. " +
+                                "XML validation may not work correctly with the wrong namespace.",
+                        DiagnosticSeverity.Warning, "WrongSynapseNamespace");
+            }
         }
     }
 
     private void validateElement(DOMNode node, List<Diagnostic> diagnostics, DOMDocument document,
                                 Set<String> definedVariables, Set<String> knownArtifacts,
-                                CancelChecker cancelChecker) {
+                                boolean is440Plus, CancelChecker cancelChecker) {
         if (cancelChecker != null) {
             cancelChecker.checkCanceled();
         }
@@ -290,6 +316,15 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             case "on-fail":
                 validateOnFail(element, diagnostics, document);
                 break;
+            case "variable":
+                validateVariableMediator(element, diagnostics, document);
+                break;
+            case "foreach":
+                validateForEachMediator(element, diagnostics, document);
+                break;
+            case "api":
+                validateApiDuplicateResources(element, diagnostics, document);
+                break;
         }
 
         // Check for unreachable code in sequence containers
@@ -297,11 +332,16 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             validateUnreachableCode(element, diagnostics, document);
         }
 
+        // New-pattern hints (MI 4.4.0+ only)
+        if (is440Plus) {
+            emitNewPatternHints(element, name, diagnostics);
+        }
+
         // Recurse into children
         List<DOMNode> children = element.getChildren();
         if (children != null) {
             for (DOMNode child : children) {
-                validateElement(child, diagnostics, document, definedVariables, knownArtifacts, cancelChecker);
+                validateElement(child, diagnostics, document, definedVariables, knownArtifacts, is440Plus, cancelChecker);
             }
         }
     }
@@ -324,6 +364,14 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 addDiagnostic(diagnostics, range,
                         "API resource must have either 'uri-template' or 'url-mapping' attribute.",
                         DiagnosticSeverity.Error, "ResourceMissingUriTemplateOrUrlMapping");
+            }
+        } else if (uriTemplate != null && urlMapping != null) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "API resource has both 'uri-template' and 'url-mapping' attributes. " +
+                                "Only one should be specified; 'url-mapping' will be ignored at runtime.",
+                        DiagnosticSeverity.Warning, "ResourceBothUriTemplateAndUrlMapping");
             }
         }
     }
@@ -382,6 +430,23 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                                         " with action 'set' requires a 'value' or 'expression' attribute.",
                                 DiagnosticSeverity.Warning, "PropertySetMissingValue");
                     }
+                }
+            }
+        }
+
+        // Check for both value and expression (expression takes precedence, value is dead config)
+        {
+            String val = element.getAttribute("value");
+            String expr = element.getAttribute("expression");
+            if (val != null && expr != null) {
+                String propName = element.getAttribute("name");
+                Range range = XMLPositionUtility.selectStartTagName(element);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Property" + (propName != null ? " '" + propName + "'" : "") +
+                                    " has both 'value' and 'expression' attributes. " +
+                                    "Only 'expression' will be evaluated; 'value' will be ignored.",
+                            DiagnosticSeverity.Warning, "BothValueAndExpression");
                 }
             }
         }
@@ -1918,6 +1983,180 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 addDiagnostic(diagnostics, range,
                         "The 'on-fail' element must contain at least one mediator to handle validation failures.",
                         DiagnosticSeverity.Warning, "ValidateOnFailEmpty");
+            }
+        }
+    }
+
+    /**
+     * Emit Hint-level suggestions for newer MI 4.4.0+ patterns.
+     * Only called when is440Plus is true.
+     */
+    private void emitNewPatternHints(DOMElement element, String name, List<Diagnostic> diagnostics) {
+        switch (name) {
+            case "property": {
+                // Skip <property> inside <log> (those are log properties)
+                DOMNode parent = element.getParentNode();
+                if (parent instanceof DOMElement && "log".equals(((DOMElement) parent).getLocalName())) {
+                    break;
+                }
+                // Skip runtime properties that need scope/action (they require <property>, not <variable>)
+                if (element.getAttribute("scope") != null || element.getAttribute("action") != null) {
+                    break;
+                }
+                Range range = XMLPositionUtility.selectStartTagName(element);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Consider using <variable> instead of <property> for new code. " +
+                                    "The <variable> mediator is the preferred approach in MI 4.4.0+.",
+                            DiagnosticSeverity.Hint, "PreferVariable");
+                }
+                break;
+            }
+            case "log": {
+                String level = element.getAttribute("level");
+                if (level != null) {
+                    Range range = XMLPositionUtility.selectStartTagName(element);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Consider using <log category=\"...\"> with <message> instead of " +
+                                        "'level' attribute for new code. The 'category' + <message> pattern " +
+                                        "is the preferred approach in MI 4.4.0+.",
+                                DiagnosticSeverity.Hint, "PreferLogCategory");
+                    }
+                }
+                break;
+            }
+            case "clone": {
+                Range range = XMLPositionUtility.selectStartTagName(element);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Consider using <scatter-gather> instead of <clone> for new code. " +
+                                    "The scatter-gather mediator is the preferred approach in MI 4.4.0+.",
+                            DiagnosticSeverity.Hint, "PreferScatterGather");
+                }
+                break;
+            }
+            case "iterate": {
+                Range range = XMLPositionUtility.selectStartTagName(element);
+                if (range != null) {
+                    addDiagnostic(diagnostics, range,
+                            "Consider using <foreach> instead of <iterate> for new code. " +
+                                    "The forEach mediator is the preferred approach in MI 4.4.0+.",
+                            DiagnosticSeverity.Hint, "PreferForEach");
+                }
+                break;
+            }
+            case "filter": {
+                String source = element.getAttribute("source");
+                String regex = element.getAttribute("regex");
+                String xpath = element.getAttribute("xpath");
+                // Only hint when using source+regex pattern (not when xpath is already used)
+                if (source != null && regex != null && xpath == null) {
+                    Range range = XMLPositionUtility.selectStartTagName(element);
+                    if (range != null) {
+                        addDiagnostic(diagnostics, range,
+                                "Consider using <filter xpath=\"${...}\"> with a Synapse expression " +
+                                        "instead of 'source' + 'regex' for new code.",
+                                DiagnosticSeverity.Hint, "PreferFilterXpath");
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    /**
+     * Validate that a <variable> mediator does not have both 'value' and 'expression' attributes.
+     */
+    private void validateVariableMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        String value = element.getAttribute("value");
+        String expression = element.getAttribute("expression");
+        if (value != null && expression != null) {
+            String varName = element.getAttribute("name");
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "Variable" + (varName != null ? " '" + varName + "'" : "") +
+                                " has both 'value' and 'expression' attributes. " +
+                                "Only 'expression' will be evaluated; 'value' will be ignored.",
+                        DiagnosticSeverity.Warning, "BothValueAndExpression");
+            }
+        }
+    }
+
+    /**
+     * Validate that a <foreach> mediator has either 'collection' or 'expression' attribute.
+     */
+    private void validateForEachMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
+        String collection = element.getAttribute("collection");
+        String expression = element.getAttribute("expression");
+        if (collection == null && expression == null) {
+            Range range = XMLPositionUtility.selectStartTagName(element);
+            if (range != null) {
+                addDiagnostic(diagnostics, range,
+                        "ForEach mediator requires either a 'collection' or 'expression' attribute " +
+                                "to specify what to iterate over.",
+                        DiagnosticSeverity.Error, "ForEachMissingCollectionOrExpression");
+            }
+        }
+    }
+
+    /**
+     * Validate that an <api> does not have duplicate resource definitions
+     * (same uri-template/url-mapping AND overlapping methods).
+     */
+    private void validateApiDuplicateResources(DOMElement element, List<Diagnostic> diagnostics,
+                                                DOMDocument document) {
+        List<DOMNode> children = element.getChildren();
+        if (children == null) {
+            return;
+        }
+        // Collect resource definitions: key = (path, normalizedMethods)
+        Map<String, List<DOMElement>> resourceMap = new HashMap<>();
+        for (DOMNode child : children) {
+            if (!(child instanceof DOMElement) || !"resource".equals(((DOMElement) child).getLocalName())) {
+                continue;
+            }
+            DOMElement resource = (DOMElement) child;
+            String path = resource.getAttribute("uri-template");
+            if (path == null) {
+                path = resource.getAttribute("url-mapping");
+            }
+            if (path == null) {
+                continue; // No path to compare — already flagged by ResourceMissingUriTemplateOrUrlMapping
+            }
+            String methods = resource.getAttribute("methods");
+            // Normalize methods: sort alphabetically for consistent comparison
+            String normalizedMethods = "";
+            if (methods != null) {
+                String[] parts = methods.trim().split("\\s+");
+                Arrays.sort(parts);
+                normalizedMethods = String.join(" ", parts);
+            }
+            String key = path + "|" + normalizedMethods;
+            resourceMap.computeIfAbsent(key, k -> new ArrayList<>()).add(resource);
+        }
+        // Flag duplicates
+        for (Map.Entry<String, List<DOMElement>> entry : resourceMap.entrySet()) {
+            List<DOMElement> resources = entry.getValue();
+            if (resources.size() > 1) {
+                // Flag all duplicates (including the first, so the user sees both)
+                for (DOMElement resource : resources) {
+                    Range range = XMLPositionUtility.selectStartTagName(resource);
+                    if (range != null) {
+                        String path = resource.getAttribute("uri-template");
+                        if (path == null) {
+                            path = resource.getAttribute("url-mapping");
+                        }
+                        String methods = resource.getAttribute("methods");
+                        addDiagnostic(diagnostics, range,
+                                "Duplicate API resource: another resource with the same " +
+                                        (path != null ? "path '" + path + "'" : "path") +
+                                        (methods != null ? " and methods '" + methods + "'" : "") +
+                                        " already exists in this API.",
+                                DiagnosticSeverity.Warning, "DuplicateResourceUriTemplate");
+                    }
+                }
             }
         }
     }
