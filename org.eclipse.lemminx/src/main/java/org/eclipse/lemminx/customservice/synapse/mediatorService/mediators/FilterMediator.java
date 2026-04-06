@@ -99,6 +99,11 @@ public class FilterMediator {
             data.remove("regularExpression");
             data.remove("source");
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         if (filter != null) {
             Map<Range, Map<String, Object>> filterData = new HashMap<>();
             filterData.put(filter.getRange().getStartTagRange(), data);
@@ -124,6 +129,7 @@ public class FilterMediator {
             ));
             data.put("regularExpression", node.getRegex());
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 

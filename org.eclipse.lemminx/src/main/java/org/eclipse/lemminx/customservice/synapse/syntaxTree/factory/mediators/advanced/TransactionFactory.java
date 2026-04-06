@@ -49,6 +49,10 @@ public class TransactionFactory extends AbstractMediatorFactory {
         if (description != null) {
             transaction.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            transaction.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

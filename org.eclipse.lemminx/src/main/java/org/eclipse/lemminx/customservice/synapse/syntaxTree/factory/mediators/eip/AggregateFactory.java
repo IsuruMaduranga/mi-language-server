@@ -152,6 +152,10 @@ public class AggregateFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Aggregate) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Aggregate) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

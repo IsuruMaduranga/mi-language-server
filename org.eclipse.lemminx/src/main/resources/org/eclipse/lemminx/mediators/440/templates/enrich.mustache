@@ -1,4 +1,4 @@
-    <enrich description="{{description}}" >
+    <enrich {{#traceFilter}}traceFilter="enable" {{/traceFilter}}description="{{description}}" >
         {{#isSourceInlined}}
         {{#inlineRegistryKey}}
         <source clone="{{cloneSource}}" key="{{inlineRegistryKey}}" type="{{sourceType}}" />{{/inlineRegistryKey}}

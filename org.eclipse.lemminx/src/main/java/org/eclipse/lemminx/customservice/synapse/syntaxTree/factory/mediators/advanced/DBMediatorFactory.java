@@ -74,6 +74,10 @@ public abstract class DBMediatorFactory extends AbstractMediatorFactory {
         if (description != null) {
             dbMediator.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            dbMediator.setTraceFilter(traceFilter);
+        }
     }
 
     private DbMediatorConnection createDbMediatorConnection(DOMElement element) {

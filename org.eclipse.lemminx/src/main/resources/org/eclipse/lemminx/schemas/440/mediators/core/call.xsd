@@ -66,6 +66,7 @@
             <xs:attribute name="blocking" type="xs:boolean" use="optional" default="true"/>
             <xs:attribute name="initAxis2ClientOptions" type="xs:boolean" use="optional" default="true"/>
             <xs:attribute name="description" type="xs:string" use="optional"/>
+            <xs:attribute name="traceFilter" type="xs:string"/>
         </xs:complexType>
     </xs:element>
 

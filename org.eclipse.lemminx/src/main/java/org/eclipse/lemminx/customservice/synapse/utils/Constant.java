@@ -35,6 +35,7 @@ public class Constant {
     public static final String MAX_MESSAGE_SIZE = "maxMessageSize";
     public static final String SCOPE = "scope";
     public static final String DESCRIPTION = "description";
+    public static final String TRACE_FILTER = "traceFilter";
     public static final String METHODS = "methods";
     public static final String SEQUENCE = "sequence";
     public static final String TYPE = "type";

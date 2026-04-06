@@ -58,6 +58,13 @@ public class SendMediator {
             data.remove("endpoint");
             data.remove("namespaces");
         }
+
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
 
     }
@@ -114,6 +121,7 @@ public class SendMediator {
         }
 
         data.put("range", node.getRange());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 }

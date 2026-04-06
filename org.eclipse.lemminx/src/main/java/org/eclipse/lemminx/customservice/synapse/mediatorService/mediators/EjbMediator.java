@@ -66,6 +66,12 @@ public class EjbMediator {
         data.put("methodArguments", methodArguments);
         data.put("argsAvailable", argsAvailable);
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
 
     }
@@ -128,6 +134,7 @@ public class EjbMediator {
             }
         }
 
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 

@@ -19,6 +19,7 @@ import org.eclipse.lemminx.customservice.synapse.syntaxTree.pojo.mediator.Mediat
 public class Loopback extends Mediator {
 
     String description;
+    String traceFilter;
 
     public Loopback() {
         setDisplayName("Loopback");
@@ -32,5 +33,15 @@ public class Loopback extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

@@ -57,6 +57,10 @@ public class SequenceMediatorFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((SequenceMediator) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((SequenceMediator) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

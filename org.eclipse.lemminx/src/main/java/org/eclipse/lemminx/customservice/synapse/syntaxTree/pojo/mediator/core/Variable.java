@@ -24,6 +24,7 @@ public class Variable extends Mediator {
     String action;
     String value;
     String expression;
+    String traceFilter;
 
     public Variable() {
         setDisplayName("Variable");
@@ -87,5 +88,15 @@ public class Variable extends Mediator {
     public void setExpression(String expression) {
 
         this.expression = expression;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

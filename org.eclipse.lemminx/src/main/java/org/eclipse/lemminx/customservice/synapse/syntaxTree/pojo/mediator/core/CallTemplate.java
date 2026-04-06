@@ -22,6 +22,7 @@ public class CallTemplate extends Mediator {
     String target;
     String onError;
     String description;
+    String traceFilter;
 
     public CallTemplate() {
         setDisplayName("Call Template");
@@ -65,5 +66,15 @@ public class CallTemplate extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

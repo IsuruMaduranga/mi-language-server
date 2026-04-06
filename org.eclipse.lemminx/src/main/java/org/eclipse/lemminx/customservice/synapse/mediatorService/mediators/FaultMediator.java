@@ -80,6 +80,13 @@ public class FaultMediator {
         } else if (Boolean.FALSE.equals(data.get("serializeResponse"))) {
             data.remove("markAsResponse");
         }
+
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
 
     }
@@ -141,6 +148,8 @@ public class FaultMediator {
             data.put("serializeResponse", true);
             data.put("markAsResponse", node.isResponse());
         }
+
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 }

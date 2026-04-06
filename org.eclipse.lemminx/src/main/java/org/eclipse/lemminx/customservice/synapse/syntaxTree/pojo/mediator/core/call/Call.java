@@ -26,6 +26,7 @@ public class Call extends Mediator {
     String description;
     boolean initAxis2ClientOptions;
     String inlineEndpointXml;
+    String traceFilter;
 
     public Call() {
         setDisplayName("Call Endpoint");
@@ -96,5 +97,15 @@ public class Call extends Mediator {
 
     public void setInlineEndpointXml(String inlineEndpointXml) {
         this.inlineEndpointXml = inlineEndpointXml;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

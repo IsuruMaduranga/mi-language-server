@@ -80,6 +80,12 @@ public class ValidateMediator {
         }
         data.put("resources", resources);
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         if (validate == null) {
             data.put("isNewMediator", true);
             return Either.forLeft(data);
@@ -155,6 +161,7 @@ public class ValidateMediator {
             }
             data.put("resources", resources);
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

@@ -25,6 +25,7 @@ public class Datamapper extends Mediator {
     SchemaType outputType;
     String xsltStyleSheet;
     String description;
+    String traceFilter;
 
     public Datamapper() {
         setDisplayName("Data Mapper");
@@ -98,5 +99,15 @@ public class Datamapper extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

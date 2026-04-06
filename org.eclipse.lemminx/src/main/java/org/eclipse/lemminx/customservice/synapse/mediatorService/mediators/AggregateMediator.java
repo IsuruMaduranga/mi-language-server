@@ -98,6 +98,12 @@ public class AggregateMediator {
             data.remove("correlationExpression");
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         if (aggregate == null) {
             data.put("isNewMediator", true);
             return Either.forLeft(data);
@@ -263,6 +269,8 @@ public class AggregateMediator {
                 "completeCondition", completeCondition != null ? completeCondition.getRange() : "",
                 "onComplete", onComplete != null ? onComplete.getRange() : ""
         ));
+
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

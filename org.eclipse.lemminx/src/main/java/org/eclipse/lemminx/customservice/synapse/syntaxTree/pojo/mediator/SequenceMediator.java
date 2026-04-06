@@ -23,6 +23,7 @@ public class SequenceMediator extends Mediator {
     String key;
     String name;
     String description;
+    String traceFilter;
 
     public SequenceMediator() {
         setDisplayName("Sequence");
@@ -66,5 +67,15 @@ public class SequenceMediator extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

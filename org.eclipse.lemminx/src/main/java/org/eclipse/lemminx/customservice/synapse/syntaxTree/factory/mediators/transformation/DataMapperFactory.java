@@ -69,6 +69,10 @@ public class DataMapperFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Datamapper) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Datamapper) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

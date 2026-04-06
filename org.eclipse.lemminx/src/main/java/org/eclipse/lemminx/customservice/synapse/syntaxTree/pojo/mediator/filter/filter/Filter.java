@@ -24,6 +24,7 @@ public class Filter extends Mediator {
     String regex;
     String xpath;
     String description;
+    String traceFilter;
 
     public Filter() {
         setDisplayName("If Else");
@@ -87,5 +88,15 @@ public class Filter extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

@@ -57,6 +57,10 @@ public class BuilderFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Builder) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Builder) node).setTraceFilter(traceFilter);
+        }
     }
 
     private BuilderMessageBuilder createBuilderMessageBuilder(DOMNode node) {

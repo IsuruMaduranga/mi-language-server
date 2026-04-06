@@ -92,6 +92,12 @@ public class EntitlementServiceMediator {
             data.remove("adviceSequenceKey");
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         if (entitlementService == null) {
             data.put("newMediator", true);
             return Either.forLeft(data);
@@ -299,6 +305,7 @@ public class EntitlementServiceMediator {
         data.put("onRejectSequenceType", node.getOnRejectAttribute() != null ? "REGISTRY_REFERENCE" : "ANONYMOUS");
         data.put("obligationsSequenceType", node.getObligationsAttribute() != null ? "REGISTRY_REFERENCE" : "ANONYMOUS");
         data.put("adviceSequenceType", node.getAdviceAttribute() != null ? "REGISTRY_REFERENCE" : "ANONYMOUS");
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

@@ -1,5 +1,5 @@
     {{#isNewMediator}}
-    <switch {{#description}}description="{{description}}"{{/description}} {{#sourceXPath}}source="{{value}}"{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}{{/sourceXPath}} >
+    <switch {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}"{{/description}} {{#sourceXPath}}source="{{value}}"{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}{{/sourceXPath}} >
         {{#caseBranches}}
         <case regex="{{caseRegex}}"></case>
         {{/caseBranches}}
@@ -9,10 +9,10 @@
     {{^isNewMediator}}
     {{#editSwitch}}
     {{#switchSelfClosed}}
-    <switch {{#description}}description="{{description}}"{{/description}} {{#sourceXPath}}source="{{value}}"{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}{{/sourceXPath}} />
+    <switch {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}"{{/description}} {{#sourceXPath}}source="{{value}}"{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}{{/sourceXPath}} />
     {{/switchSelfClosed}}
     {{^switchSelfClosed}}
-    <switch {{#description}}description="{{description}}"{{/description}} {{#sourceXPath}}source="{{value}}"{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}{{/sourceXPath}}>
+    <switch {{#traceFilter}}traceFilter="enable" {{/traceFilter}}{{#description}}description="{{description}}"{{/description}} {{#sourceXPath}}source="{{value}}"{{#namespaces}} xmlns:{{prefix}}="{{uri}}"{{/namespaces}}{{/sourceXPath}}>
     {{/switchSelfClosed}}
     {{/editSwitch}}
     {{#newCase}}

@@ -61,6 +61,10 @@ public class PropertyGroupFactory extends AbstractMediatorFactory {
         if (description != null) {
             propertyGroup.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            propertyGroup.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

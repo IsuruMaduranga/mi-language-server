@@ -24,6 +24,7 @@ public class Send extends Mediator {
     boolean buildmessage;
     String description;
     String inlineEndpointXml;
+    String traceFilter;
 
     public Send() {
         setDisplayName("Send");
@@ -76,5 +77,15 @@ public class Send extends Mediator {
 
     public void setInlineEndpointXml(String inlineEndpointXml) {
         this.inlineEndpointXml = inlineEndpointXml;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

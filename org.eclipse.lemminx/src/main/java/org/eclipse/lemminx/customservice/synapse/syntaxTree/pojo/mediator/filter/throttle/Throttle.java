@@ -26,6 +26,7 @@ public class Throttle extends Mediator {
     String onAcceptAttribute;
     String onRejectAttribute;
     String description;
+    String traceFilter;
 
     public Throttle() {
         setDisplayName("Throttle");
@@ -99,5 +100,15 @@ public class Throttle extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

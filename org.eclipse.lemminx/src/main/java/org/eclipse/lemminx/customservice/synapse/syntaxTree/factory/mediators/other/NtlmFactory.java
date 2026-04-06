@@ -61,6 +61,10 @@ public class NtlmFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Ntlm) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Ntlm) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

@@ -21,6 +21,7 @@ public class Store extends Mediator {
     String messageStore;
     String sequence;
     String description;
+    String traceFilter;
 
     public Store() {
         setDisplayName("Store");
@@ -54,5 +55,15 @@ public class Store extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

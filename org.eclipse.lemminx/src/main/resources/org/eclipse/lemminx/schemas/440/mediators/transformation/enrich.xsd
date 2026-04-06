@@ -81,6 +81,7 @@
         </xs:attribute>
         <xs:attribute name="xpath" type="xs:string" use="optional"/>
         <xs:attribute name="property" type="xs:string" use="optional"/>
+        <xs:attribute name="traceFilter" type="xs:string"/>
     </xs:complexType>
 
 </xs:schema>

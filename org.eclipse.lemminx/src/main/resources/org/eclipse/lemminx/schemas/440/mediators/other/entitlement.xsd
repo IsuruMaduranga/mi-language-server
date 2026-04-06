@@ -84,6 +84,7 @@
                 </xs:annotation>
             </xs:attribute>
             <xs:attribute name="description" type="xs:string" use="optional"/>
+            <xs:attribute name="traceFilter" type="xs:string"/>
         </xs:complexType>
     </xs:element>
 

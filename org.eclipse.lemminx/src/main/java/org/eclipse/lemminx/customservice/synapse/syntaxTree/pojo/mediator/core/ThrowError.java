@@ -23,6 +23,7 @@ public class ThrowError extends Mediator {
     String type;
     String errorMessage;
     String description;
+    String traceFilter;
 
     public ThrowError() {
         setDisplayName("ThrowError");
@@ -50,5 +51,15 @@ public class ThrowError extends Mediator {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

@@ -1,4 +1,4 @@
-    <syn:builder{{#description}} description="{{description}}" {{/description}} xmlns:syn="http://ws.apache.org/ns/synapse">
+    <syn:builder{{#traceFilter}} traceFilter="enable"{{/traceFilter}}{{#description}} description="{{description}}" {{/description}} xmlns:syn="http://ws.apache.org/ns/synapse">
         {{#messageBuilders}}
         <messageBuilder class="{{builderClass}}" contentType="{{contentType}}" formatterClass="{{formatterClass}}"/>
         {{/messageBuilders}}

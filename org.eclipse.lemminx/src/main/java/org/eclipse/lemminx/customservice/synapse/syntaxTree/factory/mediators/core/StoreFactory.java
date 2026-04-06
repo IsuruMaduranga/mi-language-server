@@ -50,6 +50,10 @@ public class StoreFactory extends AbstractMediatorFactory {
         if (description != null) {
             store.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            store.setTraceFilter(traceFilter);
+        }
     }
 
     @Override

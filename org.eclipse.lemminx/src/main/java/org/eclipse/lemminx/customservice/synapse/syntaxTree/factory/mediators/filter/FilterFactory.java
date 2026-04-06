@@ -75,6 +75,10 @@ public class FilterFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Filter) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Filter) node).setTraceFilter(traceFilter);
+        }
     }
 
     private STNode createThenElse(DOMNode child) {

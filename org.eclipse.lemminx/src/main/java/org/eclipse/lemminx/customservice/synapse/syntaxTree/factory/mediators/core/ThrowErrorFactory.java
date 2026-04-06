@@ -55,5 +55,9 @@ public class ThrowErrorFactory extends AbstractMediatorFactory {
         if (description != null) {
             throwError.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            throwError.setTraceFilter(traceFilter);
+        }
     }
 }

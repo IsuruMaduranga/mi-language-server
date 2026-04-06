@@ -88,6 +88,10 @@ public class FaultFactory extends AbstractMediatorFactory {
         if (response != null) {
             ((Makefault) node).setResponse(Boolean.parseBoolean(response));
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Makefault) node).setTraceFilter(traceFilter);
+        }
     }
 
     private MakefaultCode createMakefaultCode(DOMNode element) {

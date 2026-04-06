@@ -90,6 +90,10 @@ public class CallFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Call) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Call) node).setTraceFilter(traceFilter);
+        }
     }
 
     private CallSource createCallSource(DOMElement element) {

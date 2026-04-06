@@ -32,6 +32,17 @@
     {
       "type": "attribute",
       "value": {
+        "name": "traceFilter",
+        "displayName": "Enable Trace Filter",
+        "inputType": "checkbox",
+        "defaultValue": "false",
+        "helpTip": "Enable Trace Filter",
+        "required": "false"
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
         "name": "description",
         "displayName": "Description",
         "inputType": "string",

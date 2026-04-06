@@ -35,6 +35,11 @@ public class ThrowErrorMediator {
                 errorMessage.put("value", errorMessage.get("value"));
             }
         }
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
 
         return Either.forLeft(data);
     }
@@ -56,6 +61,7 @@ public class ThrowErrorMediator {
         data.put("description", throwError.getDescription());
         data.put("type", throwError.getType());
         data.put("errorMessage", referringSequence);
+        data.put("traceFilter", "enable".equals(throwError.getTraceFilter()));
         return data;
     }
 }

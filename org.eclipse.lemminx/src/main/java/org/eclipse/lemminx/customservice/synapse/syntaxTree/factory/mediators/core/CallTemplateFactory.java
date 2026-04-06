@@ -65,6 +65,10 @@ public class CallTemplateFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((CallTemplate) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((CallTemplate) node).setTraceFilter(traceFilter);
+        }
     }
 
     private WithParam createWithParam(DOMNode node) {

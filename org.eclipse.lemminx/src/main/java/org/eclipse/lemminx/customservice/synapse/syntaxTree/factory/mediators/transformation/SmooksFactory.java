@@ -65,6 +65,10 @@ public class SmooksFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Smooks) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Smooks) node).setTraceFilter(traceFilter);
+        }
     }
 
     private SmooksInput createSmooksInput(DOMNode childNode) {

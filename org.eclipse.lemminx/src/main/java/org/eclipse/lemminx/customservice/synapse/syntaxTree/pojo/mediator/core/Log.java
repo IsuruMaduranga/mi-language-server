@@ -26,6 +26,7 @@ public class Log extends Mediator {
     String message;
     boolean logFullPayload;
     boolean logMessageID;
+    String traceFilter;
 
     public Log() {
         setDisplayName("Log");
@@ -109,5 +110,15 @@ public class Log extends Mediator {
     public void setLogMessageID(boolean logMessageID) {
 
         this.logMessageID = logMessageID;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

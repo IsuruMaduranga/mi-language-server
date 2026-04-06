@@ -27,6 +27,11 @@ public class SwitchMediator {
     public static Either<Map<String, Object>, Map<Range, Map<String, Object>>> processData430(Map<String, Object> data,
                                                                                               Switch switchMediator,
                                                                                               List<String> dirtyFields) {
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
         if (data.containsKey("newBranch") && Boolean.TRUE.equals(data.get("newBranch"))) {
             String newCaseRegex = "";
             if (data.containsKey("numberOfCases") && data.get("numberOfCases") instanceof Double) {
@@ -199,6 +204,7 @@ public class SwitchMediator {
         }
         data.put("ranges", ranges);
         data.put("switchSelfClosed", node.isSelfClosed());
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

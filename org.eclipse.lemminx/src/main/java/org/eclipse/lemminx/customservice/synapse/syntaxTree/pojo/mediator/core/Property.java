@@ -28,6 +28,7 @@ public class Property extends Mediator {
     String action;
     String value;
     String expression;
+    String traceFilter;
 
     public Property() {
         setDisplayName("Property");
@@ -130,5 +131,15 @@ public class Property extends Mediator {
     public void setExpression(String expression) {
 
         this.expression = expression;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

@@ -119,6 +119,11 @@ public class ForeachMediator {
             if (collectionExpr != null) {
                 data.put(COLLECTION, collectionExpr.get(Constant.VALUE));
             }
+            if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+                data.put("traceFilter", true);
+            } else {
+                data.put("traceFilter", false);
+            }
             if (foreach == null) {
                 data.put("newMediatorV2", true);
                 return Either.forLeft(data);
@@ -170,6 +175,7 @@ public class ForeachMediator {
             }
             data.put(COLLECTION, MediatorUtils.getExpressionData(foreach.getCollection()));
             data.put(Constant.VERSION, "v2");
+            data.put("traceFilter", "enable".equals(foreach.getTraceFilter()));
             return data;
         }
         return getDataFromST430(foreach);

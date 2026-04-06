@@ -66,6 +66,13 @@ public class ScriptMediator {
                 data.put("scriptLanguage", scriptLanguage.replace("(Deprecated)", "").trim());
             }
         }
+
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
 
     }
@@ -76,6 +83,7 @@ public class ScriptMediator {
         if (data.containsKey("scriptType") && "REGISTRY_REFERENCE".equals(data.get("scriptType"))) {
             data.put("scriptType", "RESOURCE_REFERENCE");
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 

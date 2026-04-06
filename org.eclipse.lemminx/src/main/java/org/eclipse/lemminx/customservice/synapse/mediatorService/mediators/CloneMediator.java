@@ -32,6 +32,12 @@ public class CloneMediator {
         data.remove("soapAction");
         data.remove("toAddress");
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         if (data.containsKey("newBranch") && Boolean.TRUE.equals(data.get("newBranch"))) {
             return Either.forLeft(data);
         }
@@ -204,6 +210,7 @@ public class CloneMediator {
         if (node.getTarget() != null && node.getTarget().length > 0) {
             data.put("targets", getTargetsData(node.getTarget()));
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 

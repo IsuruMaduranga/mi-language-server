@@ -90,6 +90,11 @@ public class DBLookupMediator {
         data.put("isDbConnection", isDbConnection);
         data.put("isCarbonDs", isCarbonDs);
         data.put("properties", properties);
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
 
         return Either.forLeft(data);
 
@@ -175,6 +180,7 @@ public class DBLookupMediator {
             sqlStatements.add(List.of(sql, parameters, results));
         }
         data.put("sqlStatements", sqlStatements);
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

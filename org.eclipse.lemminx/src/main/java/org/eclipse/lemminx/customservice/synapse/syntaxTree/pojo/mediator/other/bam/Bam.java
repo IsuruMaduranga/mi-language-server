@@ -20,6 +20,7 @@ public class Bam extends Mediator {
 
     BamServerProfile serverProfile;
     String description;
+    String traceFilter;
 
     public Bam() {
         setDisplayName("Bam");
@@ -43,5 +44,15 @@ public class Bam extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

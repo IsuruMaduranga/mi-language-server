@@ -74,6 +74,10 @@ public class IterateFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Iterate) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Iterate) node).setTraceFilter(traceFilter);
+        }
     }
 
     @Override

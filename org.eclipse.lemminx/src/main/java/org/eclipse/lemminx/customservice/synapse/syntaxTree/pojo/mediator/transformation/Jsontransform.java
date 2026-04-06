@@ -22,6 +22,7 @@ public class Jsontransform extends Mediator {
     MediatorProperty[] property;
     String schema;
     String description;
+    String traceFilter;
 
     public Jsontransform() {
         setDisplayName("Json Transform");
@@ -55,5 +56,15 @@ public class Jsontransform extends Mediator {
     public void setDescription(String description) {
 
         this.description = description;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

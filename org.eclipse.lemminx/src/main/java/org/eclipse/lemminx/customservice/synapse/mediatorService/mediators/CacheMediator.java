@@ -73,6 +73,12 @@ public class CacheMediator {
 
         boolean collectorToFinder = cache != null && cache.isCollector() && "FINDER".equals(data.get("cacheType"));
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         if (cache == null || collectorToFinder) {
             data.put("isNewMediator", true);
             return Either.forLeft(data);
@@ -202,6 +208,7 @@ public class CacheMediator {
         data.put("isAnonymousSequence", node.getOnCacheHit() != null &&
                 node.getOnCacheHit().getMediatorList() != null && !node.getOnCacheHit().getMediatorList().isEmpty());
         data.put("implementationType", node.getImplementation() != null ? node.getImplementation().getType() : null);
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
         return data;
     }
 }

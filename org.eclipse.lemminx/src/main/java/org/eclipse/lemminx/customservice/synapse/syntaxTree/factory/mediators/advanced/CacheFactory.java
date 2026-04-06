@@ -90,6 +90,10 @@ public class CacheFactory extends AbstractMediatorFactory {
         if (description != null) {
             cacheMediator.setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            cacheMediator.setTraceFilter(traceFilter);
+        }
     }
 
     private CacheOnCacheHit createCacheOnCacheHit(DOMNode element) {

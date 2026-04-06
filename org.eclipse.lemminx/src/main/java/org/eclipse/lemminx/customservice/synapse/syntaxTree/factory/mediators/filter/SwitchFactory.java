@@ -66,6 +66,10 @@ public class SwitchFactory extends AbstractMediatorFactory {
         if (description != null) {
             ((Switch) node).setDescription(description);
         }
+        String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+        if (traceFilter != null) {
+            ((Switch) node).setTraceFilter(traceFilter);
+        }
     }
 
     private SwitchCase createSwitchCase(DOMNode child) {

@@ -44,6 +44,11 @@ public class ScatterGatherMediator {
     public static Either<Map<String, Object>, Map<Range, Map<String, Object>>> processData(Map<String, Object> data,
                                                                                            ScatterGather scatterGather,
                                                                                            List<String> dirtyFields) {
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
 
         if (data.containsKey("newBranch") && Boolean.TRUE.equals(data.get("newBranch"))) {
             return Either.forLeft(data);
@@ -154,6 +159,7 @@ public class ScatterGatherMediator {
         data.put(COMPLETE_TIMEOUT, scatterGather.getScatterGatherAggregation().getCompleteTimeout());
         data.put(MIN_MESSAGES, scatterGather.getScatterGatherAggregation().getMinMessages());
         data.put(MAX_MESSAGES, scatterGather.getScatterGatherAggregation().getMaxMessages());
+        data.put("traceFilter", "enable".equals(scatterGather.getTraceFilter()));
         return data;
     }
 

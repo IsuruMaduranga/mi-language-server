@@ -49,6 +49,12 @@ public class JsontransformMediator {
             data.put("hasProperties", true);
         }
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
     }
 
@@ -71,6 +77,8 @@ public class JsontransformMediator {
         } else {
             data.put("jsonTransformProperties", new ArrayList<>());
         }
+
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }

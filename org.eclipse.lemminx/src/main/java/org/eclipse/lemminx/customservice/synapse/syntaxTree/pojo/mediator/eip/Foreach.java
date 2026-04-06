@@ -33,6 +33,7 @@ public class Foreach extends Mediator {
     String collection;
     String counterVariableName;
     boolean continueWithoutAggregation;
+    String traceFilter;
 
     public Foreach() {
         setDisplayName("Foreach");
@@ -166,5 +167,15 @@ public class Foreach extends Mediator {
     public void setEnclosingElement(String enclosingElement) {
 
         this.enclosingElement = enclosingElement;
+    }
+
+    public String getTraceFilter() {
+
+        return traceFilter;
+    }
+
+    public void setTraceFilter(String traceFilter) {
+
+        this.traceFilter = traceFilter;
     }
 }

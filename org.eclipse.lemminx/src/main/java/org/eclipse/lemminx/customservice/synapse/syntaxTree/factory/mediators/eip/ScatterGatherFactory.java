@@ -103,6 +103,10 @@ public class ScatterGatherFactory extends AbstractMediatorFactory {
             if (description != null) {
                 ((ScatterGather) node).setDescription(description);
             }
+            String traceFilter = element.getAttribute(Constant.TRACE_FILTER);
+            if (traceFilter != null) {
+                ((ScatterGather) node).setTraceFilter(traceFilter);
+            }
         } catch (IllegalArgumentException e) {
             // ignore
         }

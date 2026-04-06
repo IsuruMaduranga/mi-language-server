@@ -73,6 +73,12 @@ public class EnrichMediator {
 
         data.put("isSourceInlined", isSourceInlined);
 
+        if (data.containsKey("traceFilter") && Boolean.parseBoolean(String.valueOf(data.get("traceFilter")))) {
+            data.put("traceFilter", true);
+        } else {
+            data.put("traceFilter", false);
+        }
+
         return Either.forLeft(data);
     }
 
@@ -142,6 +148,7 @@ public class EnrichMediator {
             targetXPathJsonPath.put("namespaces", MediatorUtils.transformNamespaces(node.getTarget().getNamespaces()));
             data.put("targetXPathJsonPath", targetXPathJsonPath);
         }
+        data.put("traceFilter", "enable".equals(node.getTraceFilter()));
 
         return data;
     }
