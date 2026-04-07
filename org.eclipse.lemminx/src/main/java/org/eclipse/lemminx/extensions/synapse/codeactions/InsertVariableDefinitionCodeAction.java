@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com).
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -15,8 +15,6 @@
 package org.eclipse.lemminx.extensions.synapse.codeactions;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.eclipse.lemminx.commons.BadLocationException;
 import org.eclipse.lemminx.commons.CodeActionFactory;
@@ -38,24 +36,17 @@ import org.eclipse.lsp4j.jsonrpc.CancelChecker;
  */
 public class InsertVariableDefinitionCodeAction implements ICodeActionParticipant {
 
-    private static final Pattern VAR_NAME_PATTERN =
-            Pattern.compile("Variable '([^']+)' is referenced");
-
     @Override
     public void doCodeAction(ICodeActionRequest request, List<CodeAction> codeActions,
                              CancelChecker cancelChecker) {
         Diagnostic diagnostic = request.getDiagnostic();
         DOMDocument document = request.getDocument();
 
-        String message = diagnostic.getMessage();
-        if (message == null) {
+        Object data = diagnostic.getData();
+        if (!(data instanceof String) || ((String) data).isEmpty()) {
             return;
         }
-        Matcher m = VAR_NAME_PATTERN.matcher(message);
-        if (!m.find()) {
-            return;
-        }
-        String varName = m.group(1);
+        String varName = (String) data;
 
         try {
             // The diagnostic range is on the attribute value; findNodeAt returns the element

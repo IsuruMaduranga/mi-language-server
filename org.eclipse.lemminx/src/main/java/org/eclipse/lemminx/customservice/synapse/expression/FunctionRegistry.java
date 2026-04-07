@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com).
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -128,16 +128,17 @@ public class FunctionRegistry {
                     .getAsJsonObject();
             for (Map.Entry<String, JsonElement> category : root.entrySet()) {
                 JsonObject categoryObj = category.getValue().getAsJsonObject();
-                if (!categoryObj.has("items")) continue;
-                for (JsonElement itemElem : categoryObj.getAsJsonArray("items")) {
+                if (!categoryObj.has(ExpressionConstants.ITEMS)) continue;
+                for (JsonElement itemElem : categoryObj.getAsJsonArray(ExpressionConstants.ITEMS)) {
                     JsonObject item = itemElem.getAsJsonObject();
-                    String label = item.get("label").getAsString();
+                    String label = item.get(ExpressionConstants.LABEL).getAsString();
                     String funcName = extractFunctionName(label);
-                    String details = item.has("details") ? item.get("details").getAsString() : "";
+                    String details = item.has(ExpressionConstants.DETAIL)
+                            ? item.get(ExpressionConstants.DETAIL).getAsString() : "";
 
                     List<String> paramTypes = new ArrayList<>();
-                    if (item.has("signature")) {
-                        JsonObject signature = item.getAsJsonObject("signature");
+                    if (item.has(ExpressionConstants.SIGNATURE)) {
+                        JsonObject signature = item.getAsJsonObject(ExpressionConstants.SIGNATURE);
                         for (Map.Entry<String, JsonElement> param : signature.entrySet()) {
                             paramTypes.add(param.getValue().getAsString());
                         }

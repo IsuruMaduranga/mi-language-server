@@ -312,4 +312,7 @@ public interface ISynapseLanguageService {
   
     @JsonRequest
     CompletableFuture<MCPToolResponse> getMCPTools(MCPToolRequest param);
+
+    @JsonRequest
+    CompletableFuture<Either<ConnectorResponse, String>> resolveConnector(UpdateDependencyRequest request);
 }

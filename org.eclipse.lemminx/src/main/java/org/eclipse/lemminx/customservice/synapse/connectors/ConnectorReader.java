@@ -316,7 +316,7 @@ public class ConnectorReader {
 
         for (ConnectorAction action : connector.getActions()) {
             String uiSchemaPath = action.getUiSchemaPath();
-            if (uiSchemaPath == null) {
+            if (StringUtils.isEmpty(uiSchemaPath)) {
                 continue;
             }
             try {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com).
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -26,6 +26,7 @@ import org.eclipse.lemminx.dom.DOMElement;
 import org.eclipse.lemminx.dom.DOMNode;
 import org.eclipse.lemminx.extensions.contentmodel.settings.XMLValidationSettings;
 import org.eclipse.lemminx.services.extensions.diagnostics.IDiagnosticsParticipant;
+import org.eclipse.lemminx.utils.StringUtils;
 import org.eclipse.lemminx.utils.XMLPositionUtility;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
@@ -181,7 +182,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             // P1-19: Check if this document's root artifact name is a duplicate
             validateDuplicateArtifactName(root, diagnostics);
         } else if (rootName != null && SYNAPSE_ROOT_ELEMENTS.contains(rootName) && namespace == null) {
-            // Looks like a Synapse file but missing namespace (Issue 13)
+            // Looks like a Synapse file but missing namespace
             Range range = XMLPositionUtility.selectStartTagName(root);
             if (range != null) {
                 addDiagnostic(diagnostics, range,
@@ -347,7 +348,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 2b: API Resource must have either uri-template or url-mapping.
+     * API Resource must have either uri-template or url-mapping.
      */
     private void validateAPIResource(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         // Only validate if parent is <api>
@@ -377,7 +378,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 2c: Filter mediator must have (source + regex) or xpath.
+     * Filter mediator must have (source + regex) or xpath.
      */
     private void validateFilterMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         String source = element.getAttribute("source");
@@ -404,7 +405,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 3: Property mediator with action=set (or default) needs value or expression.
+     * Property mediator with action=set (or default) needs value or expression.
      */
     private void validatePropertyMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         // Skip if this is a <property> inside <log> (those are log properties, not the property mediator)
@@ -470,7 +471,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 3: Header mediator with action=set (or default) needs value or expression.
+     * Header mediator with action=set (or default) needs value or expression.
      */
     private void validateHeaderMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         String action = element.getAttribute("action");
@@ -495,7 +496,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 3: Log with level="custom" should have at least one property child.
+     * Log with level="custom" should have at least one property child.
      */
     private void validateLogMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         String level = element.getAttribute("level");
@@ -522,7 +523,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 3: Switch mediator should not have duplicate case regex values.
+     * Switch mediator should not have duplicate case regex values.
      */
     private void validateSwitchMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         Set<String> seenRegex = new HashSet<>();
@@ -546,7 +547,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 12: InboundEndpoint must have either protocol or class.
+     * InboundEndpoint must have either protocol or class.
      */
     private void validateInboundEndpoint(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         String protocol = element.getAttribute("protocol");
@@ -703,7 +704,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
         // Get format text content (may include child XML for xml payloads)
         String formatText = getFullTextContent(formatElement);
-        if (formatText == null || formatText.isEmpty()) return;
+        if (StringUtils.isEmpty(formatText)) return;
 
         // Find the highest $N placeholder index
         Matcher matcher = PLACEHOLDER_PATTERN.matcher(formatText);
@@ -898,7 +899,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     private void validateStoreMediator(DOMElement element, List<Diagnostic> diagnostics, Set<String> knownArtifacts) {
         if (knownArtifacts == null) return;
         String messageStore = element.getAttribute("messageStore");
-        if (messageStore != null && !messageStore.isEmpty() && !isExpression(messageStore)
+        if (!StringUtils.isEmpty(messageStore) && !isExpression(messageStore)
                 && !knownArtifacts.contains(messageStore)) {
             DOMAttr attr = element.getAttributeNode("messageStore");
             if (attr != null) {
@@ -951,7 +952,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
      */
     private void validateCallTemplateParams(DOMElement element, List<Diagnostic> diagnostics) {
         String target = element.getAttribute("target");
-        if (target == null || target.isEmpty() || isExpression(target)) return;
+        if (StringUtils.isEmpty(target) || isExpression(target)) return;
 
         // P2-22: Warn about circular references
         if (cyclicArtifacts.contains(target)) {
@@ -1073,7 +1074,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 7: Detect unreachable code after terminal mediators (respond, drop, loopback).
+     * Detect unreachable code after terminal mediators (respond, drop, loopback).
      */
     private void validateUnreachableCode(DOMElement container, List<Diagnostic> diagnostics, DOMDocument document) {
         List<DOMNode> children = container.getChildren();
@@ -1105,7 +1106,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 1c: Collect variable definitions from <variable> and <property scope="default"> mediators.
+     * Collect variable definitions from &lt;variable&gt; and &lt;property scope="default"&gt; mediators.
      */
     private void collectVariableDefinition(DOMElement element, Set<String> definedVariables) {
         String name = element.getLocalName();
@@ -1140,7 +1141,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 1c: Validate that vars.X references in expression attributes refer to defined variables.
+     * Validate that vars.X references in expression attributes refer to defined variables.
      */
     private void validateVariableReferences(DOMElement element, List<Diagnostic> diagnostics,
                                             DOMDocument document, Set<String> definedVariables) {
@@ -1177,12 +1178,18 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                     if (varName != null && !definedVariables.contains(varName)) {
                         Range range = XMLPositionUtility.selectAttributeValue(attr);
                         if (range != null) {
-                            addDiagnostic(diagnostics, range,
+                            Diagnostic d = new Diagnostic();
+                            d.setRange(range);
+                            d.setMessage(
                                     "Variable '" + varName + "' is referenced but not defined in this file. " +
                                             "If it is defined in a calling sequence, this warning can be ignored. " +
                                             "Otherwise, define it using <variable name=\"" + varName +
-                                            "\" .../> before this point.",
-                                    DiagnosticSeverity.Warning, "UndefinedVariable");
+                                            "\" .../> before this point.");
+                            d.setSeverity(DiagnosticSeverity.Warning);
+                            d.setSource(SOURCE);
+                            d.setCode("UndefinedVariable");
+                            d.setData(varName);
+                            diagnostics.add(d);
                         }
                     }
                 }
@@ -1191,7 +1198,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Issue 6: Validate cross-file references (key, target, onError attributes).
+     * Validate cross-file references (key, target, onError attributes).
      */
     private void validateCrossReferences(DOMElement element, List<Diagnostic> diagnostics,
                                          Set<String> knownArtifacts) {
@@ -1216,7 +1223,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                     }
                 }
             }
-            if (key != null && !key.isEmpty() && !isExpression(key) && !knownArtifacts.contains(key)) {
+            if (!StringUtils.isEmpty(key) && !isExpression(key) && !knownArtifacts.contains(key)) {
                 DOMAttr keyAttr = element.getAttributeNode("key");
                 if (keyAttr != null) {
                     Range range = XMLPositionUtility.selectAttributeValue(keyAttr);
@@ -1233,7 +1240,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         // Check 'target' attribute on call-template
         if ("call-template".equals(name)) {
             String target = element.getAttribute("target");
-            if (target != null && !target.isEmpty() && !isExpression(target)
+            if (!StringUtils.isEmpty(target) && !isExpression(target)
                     && !knownArtifacts.contains(target)) {
                 DOMAttr targetAttr = element.getAttributeNode("target");
                 if (targetAttr != null) {
@@ -1251,7 +1258,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         // Check 'onError' attribute
         if (ON_ERROR_ELEMENTS.contains(name)) {
             String onError = element.getAttribute("onError");
-            if (onError != null && !onError.isEmpty() && !isExpression(onError)
+            if (!StringUtils.isEmpty(onError) && !isExpression(onError)
                     && !knownArtifacts.contains(onError)) {
                 DOMAttr onErrorAttr = element.getAttributeNode("onError");
                 if (onErrorAttr != null) {
@@ -1270,7 +1277,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         if ("throttle".equals(name)) {
             for (String attrName : new String[]{"onAccept", "onReject"}) {
                 String val = element.getAttribute(attrName);
-                if (val != null && !val.isEmpty() && !isExpression(val) && !knownArtifacts.contains(val)) {
+                if (!StringUtils.isEmpty(val) && !isExpression(val) && !knownArtifacts.contains(val)) {
                     DOMAttr attr = element.getAttributeNode(attrName);
                     if (attr != null) {
                         Range range = XMLPositionUtility.selectAttributeValue(attr);
@@ -1288,7 +1295,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         // Check 'configKey' attribute on connector operations (elements with "." in name)
         if (name.contains(".")) {
             String configKey = element.getAttribute("configKey");
-            if (configKey != null && !configKey.isEmpty() && !isExpression(configKey)
+            if (!StringUtils.isEmpty(configKey) && !isExpression(configKey)
                     && !knownArtifacts.contains(configKey)) {
                 DOMAttr configKeyAttr = element.getAttributeNode("configKey");
                 if (configKeyAttr != null) {
@@ -1324,7 +1331,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     private void validateRegistryKeyRef(DOMElement element, String attrName, String description,
                                         List<Diagnostic> diagnostics, Set<String> knownArtifacts) {
         String value = element.getAttribute(attrName);
-        if (value == null || value.isEmpty() || isExpression(value)) {
+        if (StringUtils.isEmpty(value) || isExpression(value)) {
             return;
         }
         if (!knownArtifacts.contains(value)) {
@@ -1509,12 +1516,12 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
 
         if ("call-template".equals(name)) {
             String target = element.getAttribute("target");
-            if (target != null && !target.isEmpty() && !isExpression(target)) {
+            if (!StringUtils.isEmpty(target) && !isExpression(target)) {
                 refs.add(target);
             }
         } else if ("sequence".equals(name)) {
             String key = element.getAttribute("key");
-            if (key != null && !key.isEmpty() && !isExpression(key)) {
+            if (!StringUtils.isEmpty(key) && !isExpression(key)) {
                 refs.add(key);
             }
         }
@@ -1605,7 +1612,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
      */
     private void validateClassMediator(DOMElement element, List<Diagnostic> diagnostics, DOMDocument document) {
         String name = element.getAttribute("name");
-        if (name == null || name.isEmpty() || isExpression(name)) return;
+        if (StringUtils.isEmpty(name) || isExpression(name)) return;
 
         if (!FQN_PATTERN.matcher(name).matches()) {
             DOMAttr nameAttr = element.getAttributeNode("name");
@@ -1626,7 +1633,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
      */
     private void validateRegexAttribute(DOMElement element, String attrName, List<Diagnostic> diagnostics) {
         String regex = element.getAttribute(attrName);
-        if (regex == null || regex.isEmpty() || isExpression(regex)) return;
+        if (StringUtils.isEmpty(regex) || isExpression(regex)) return;
 
         try {
             Pattern.compile(regex);
@@ -1703,7 +1710,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             if (childName == null) continue;
 
             String textContent = getElementTextContent(childElem);
-            if (textContent == null || textContent.isEmpty() || isExpression(textContent)) continue;
+            if (StringUtils.isEmpty(textContent) || isExpression(textContent)) continue;
 
             if ("errorCodes".equals(childName)) {
                 if (!ERROR_CODES_PATTERN.matcher(textContent).matches()) {
@@ -1753,7 +1760,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             DOMElement childElem = (DOMElement) child;
             if ("responseAction".equals(childElem.getLocalName())) {
                 String textContent = getElementTextContent(childElem);
-                if (textContent != null && !textContent.isEmpty() && !isExpression(textContent)
+                if (!StringUtils.isEmpty(textContent) && !isExpression(textContent)
                         && !VALID_RESPONSE_ACTIONS.contains(textContent)) {
                     Range range = XMLPositionUtility.selectStartTagName(childElem);
                     if (range != null) {
@@ -1773,7 +1780,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     private void validateEnqueueMediator(DOMElement element, List<Diagnostic> diagnostics, Set<String> knownArtifacts) {
         if (knownArtifacts == null) return;
         String seq = element.getAttribute("sequence");
-        if (seq != null && !seq.isEmpty() && !isExpression(seq) && !knownArtifacts.contains(seq)) {
+        if (!StringUtils.isEmpty(seq) && !isExpression(seq) && !knownArtifacts.contains(seq)) {
             DOMAttr attr = element.getAttributeNode("sequence");
             if (attr != null) {
                 Range range = XMLPositionUtility.selectAttributeValue(attr);
@@ -1799,7 +1806,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             return;
         }
         String seq = element.getAttribute("sequence");
-        if (seq != null && !seq.isEmpty() && !isExpression(seq) && !knownArtifacts.contains(seq)) {
+        if (!StringUtils.isEmpty(seq) && !isExpression(seq) && !knownArtifacts.contains(seq)) {
             DOMAttr attr = element.getAttributeNode("sequence");
             if (attr != null) {
                 Range range = XMLPositionUtility.selectAttributeValue(attr);
@@ -1820,7 +1827,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                                          Set<String> knownArtifacts) {
         if (knownArtifacts == null) return;
         String serviceName = element.getAttribute("serviceName");
-        if (serviceName != null && !serviceName.isEmpty() && !isExpression(serviceName)
+        if (!StringUtils.isEmpty(serviceName) && !isExpression(serviceName)
                 && !knownArtifacts.contains(serviceName)) {
             DOMAttr attr = element.getAttributeNode("serviceName");
             if (attr != null) {
@@ -1897,7 +1904,7 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             for (DOMNode child : children) {
                 if (child.isText() || child.isCDATA()) {
                     String text = child.getTextContent();
-                    if (text != null && !text.trim().isEmpty()) {
+                    if (!StringUtils.isBlank(text)) {
                         return true;
                     }
                 }

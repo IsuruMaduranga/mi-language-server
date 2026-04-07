@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com).
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -62,19 +62,7 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
         boolean arityMatch = overloads.stream().anyMatch(s -> s.getArity() == argCount);
 
         if (!arityMatch) {
-            int minArity = registry.getMinArity(funcName);
-            int maxArity = registry.getMaxArity(funcName);
-            String usage = registry.getUsageString(funcName);
-            String expectedStr;
-            if (minArity == maxArity) {
-                expectedStr = String.valueOf(minArity);
-            } else {
-                expectedStr = minArity + "-" + maxArity;
-            }
-            String message = String.format(
-                    "Function '%s' expects %s argument(s) but received %d. Usage: %s",
-                    funcName, expectedStr, argCount, usage);
-            errors.add(new ExpressionError(line, charPos, message, funcToken, null));
+            addArityError(funcName, argCount, line, charPos, funcToken);
         } else if (args != null) {
             // Arity matches — check literal argument types against all overloads with this arity.
             // Accept the call if ANY overload is type-compatible (e.g., length has both
@@ -116,21 +104,25 @@ public class SemanticExpressionValidator extends ExpressionParserBaseVisitor<Voi
             List<FunctionSignature> overloads = registry.getOverloads(funcName);
             boolean arityMatch = overloads.stream().anyMatch(s -> s.getArity() == argCount);
             if (!arityMatch) {
-                int minArity = registry.getMinArity(funcName);
-                int maxArity = registry.getMaxArity(funcName);
-                String usage = registry.getUsageString(funcName);
-                String expectedStr;
-                if (minArity == maxArity) {
-                    expectedStr = String.valueOf(minArity);
-                } else {
-                    expectedStr = minArity + "-" + maxArity;
-                }
-                String message = String.format(
-                        "Function '%s' expects %s argument(s) but received %d. Usage: %s",
-                        funcName, expectedStr, argCount, usage);
-                errors.add(new ExpressionError(line, charPos, message, funcToken, null));
+                addArityError(funcName, argCount, line, charPos, funcToken);
             }
         }
+    }
+
+    private void addArityError(String funcName, int argCount, int line, int charPos, Token funcToken) {
+        int minArity = registry.getMinArity(funcName);
+        int maxArity = registry.getMaxArity(funcName);
+        String usage = registry.getUsageString(funcName);
+        String expectedStr;
+        if (minArity == maxArity) {
+            expectedStr = String.valueOf(minArity);
+        } else {
+            expectedStr = minArity + "-" + maxArity;
+        }
+        String message = String.format(
+                "Function '%s' expects %s argument(s) but received %d. Usage: %s",
+                funcName, expectedStr, argCount, usage);
+        errors.add(new ExpressionError(line, charPos, message, funcToken, null));
     }
 
     private void validateArgumentTypes(String funcName, FunctionSignature sig,

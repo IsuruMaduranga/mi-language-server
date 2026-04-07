@@ -25,6 +25,7 @@ import org.eclipse.lemminx.customservice.synapse.api.generator.pojo.GenerateAPIR
 import org.eclipse.lemminx.customservice.synapse.api.generator.pojo.GenerateSwaggerParam;
 import org.eclipse.lemminx.customservice.synapse.api.generator.pojo.GenerateSwaggerResponse;
 import org.eclipse.lemminx.customservice.synapse.connectors.ConnectionHandler;
+import org.eclipse.lemminx.customservice.synapse.connectors.ConnectorReader;
 import org.eclipse.lemminx.customservice.synapse.connectors.NewProjectConnectorLoader;
 import org.eclipse.lemminx.customservice.synapse.connectors.OldProjectConnectorLoader;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectionUIParam;
@@ -92,6 +93,7 @@ import org.eclipse.lemminx.customservice.synapse.parser.config.ConfigParser;
 import org.eclipse.lemminx.customservice.synapse.parser.config.ConfigurableEntry;
 import org.eclipse.lemminx.customservice.synapse.parser.pom.PomParser;
 import org.eclipse.lemminx.customservice.synapse.parser.ConnectorDownloadManager;
+import org.eclipse.lemminx.customservice.synapse.parser.DependencyDetails;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.AbstractResourceFinder;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.ArtifactFileScanner;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.RegistryFileScanner;
@@ -365,6 +367,83 @@ public class SynapseLanguageService implements ISynapseLanguageService {
                 return Either3.forSecond(connector);
             }
             return Either3.forFirst(new ConnectorResponse(connectorHolder.getConnectors()));
+        });
+    }
+
+    @Override
+    public CompletableFuture<Either<ConnectorResponse, String>> resolveConnector(UpdateDependencyRequest request) {
+
+        return CompletableFuture.supplyAsync(() -> {
+            if (request.dependencies == null || request.dependencies.isEmpty()) {
+                return Either.forRight("At least one dependency is required");
+            }
+            if (StringUtils.isBlank(projectUri)) {
+                return Either.forRight("Project is not initialized");
+            }
+
+            String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
+            File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
+                    Constant.CONNECTORS, projectId).toFile();
+            File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
+            File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
+            downloadDir.mkdirs();
+            extractDir.mkdirs();
+
+            List<Connector> resolvedConnectors = new ArrayList<>();
+            List<String> errors = new ArrayList<>();
+
+            for (DependencyDetails dep : request.dependencies) {
+                if (StringUtils.isAnyBlank(dep.getGroupId(), dep.getArtifact(), dep.getVersion())) {
+                    errors.add("Skipping dependency with missing groupId, artifact, or version");
+                    continue;
+                }
+
+                try {
+                    // Download if not already present
+                    File zipFile = new File(downloadDir,
+                            dep.getArtifact() + "-" + dep.getVersion() + Constant.ZIP_EXTENSION);
+                    if (!zipFile.exists()) {
+                        File localCopy = Utils.getDependencyFromLocalRepo(dep.getGroupId(),
+                                dep.getArtifact(), dep.getVersion(), dep.getType());
+                        if (localCopy != null) {
+                            Utils.copyFile(localCopy.getPath(), downloadDir.getPath());
+                        } else {
+                            Utils.downloadConnector(dep.getGroupId(), dep.getArtifact(), dep.getVersion(),
+                                    downloadDir, Constant.ZIP_EXTENSION_NO_DOT, projectUri);
+                        }
+                    }
+
+                    if (!zipFile.exists()) {
+                        errors.add("Failed to download connector: " + dep.getArtifact());
+                        continue;
+                    }
+
+                    // Extract if not already extracted
+                    File connectorExtractDir = new File(extractDir,
+                            dep.getArtifact() + "-" + dep.getVersion());
+                    if (!connectorExtractDir.exists()) {
+                        Utils.extractZip(zipFile, connectorExtractDir);
+                    }
+
+                    // Read connector metadata
+                    ConnectorReader connectorReader = new ConnectorReader();
+                    Connector connector = connectorReader.readConnector(
+                            connectorExtractDir.getAbsolutePath(), projectUri);
+                    if (connector != null) {
+                        resolvedConnectors.add(connector);
+                    } else {
+                        errors.add("Failed to read connector metadata: " + dep.getArtifact());
+                    }
+                } catch (IOException e) {
+                    log.log(Level.WARNING, "Error resolving connector: " + dep.getArtifact(), e);
+                    errors.add("Error resolving " + dep.getArtifact() + ": " + e.getMessage());
+                }
+            }
+
+            if (resolvedConnectors.isEmpty() && !errors.isEmpty()) {
+                return Either.forRight(String.join("; ", errors));
+            }
+            return Either.forLeft(new ConnectorResponse(resolvedConnectors));
         });
     }
 

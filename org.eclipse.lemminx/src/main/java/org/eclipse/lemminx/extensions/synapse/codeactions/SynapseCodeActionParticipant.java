@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com).
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -44,24 +44,24 @@ public class SynapseCodeActionParticipant implements ICodeActionParticipant {
     @Override
     public void doCodeAction(ICodeActionRequest request, List<CodeAction> codeActions,
                              CancelChecker cancelChecker) {
+        cancelChecker.checkCanceled();
         Diagnostic diagnostic = request.getDiagnostic();
         if (diagnostic == null || diagnostic.getCode() == null || !diagnostic.getCode().isLeft()) {
             return;
         }
         ICodeActionParticipant handler = handlers.get(diagnostic.getCode().getLeft());
         if (handler != null) {
+            cancelChecker.checkCanceled();
             handler.doCodeAction(request, codeActions, cancelChecker);
         }
     }
 
     private void registerHandlers() {
-        // #1: MissingSynapseNamespace
         handlers.put("MissingSynapseNamespace",
                 new AddMissingAttributeCodeAction(Collections.singletonList(
                         new AttributeChoice("Add Synapse namespace",
                                 " xmlns=\"http://ws.apache.org/ns/synapse\""))));
 
-        // Shared: value or expression (#2, #3, #4, #16)
         AddMissingAttributeCodeAction valueOrExpr = new AddMissingAttributeCodeAction(Arrays.asList(
                 new AttributeChoice("Add 'value' attribute", " value=\"\""),
                 new AttributeChoice("Add 'expression' attribute", " expression=\"${}\"")
@@ -71,20 +71,17 @@ public class SynapseCodeActionParticipant implements ICodeActionParticipant {
         handlers.put("WithParamMissingValueOrExpression", valueOrExpr);
         handlers.put("DbParameterMissingValue", valueOrExpr);
 
-        // #5: ResourceMissingUriTemplateOrUrlMapping
         handlers.put("ResourceMissingUriTemplateOrUrlMapping",
                 new AddMissingAttributeCodeAction(Arrays.asList(
                         new AttributeChoice("Add 'uri-template' attribute", " uri-template=\"/\""),
                         new AttributeChoice("Add 'url-mapping' attribute", " url-mapping=\"/\""))));
 
-        // #6: FilterMissingCondition
         handlers.put("FilterMissingCondition",
                 new AddMissingAttributeCodeAction(Arrays.asList(
                         new AttributeChoice("Add 'xpath' condition", " xpath=\"\""),
                         new AttributeChoice("Add 'source' and 'regex' condition",
                                 " source=\"\" regex=\"\""))));
 
-        // #7: InboundMissingProtocolOrClass
         handlers.put("InboundMissingProtocolOrClass",
                 new AddMissingAttributeCodeAction(Arrays.asList(
                         new AttributeChoice("Add protocol='http'", " protocol=\"http\""),
@@ -93,44 +90,36 @@ public class SynapseCodeActionParticipant implements ICodeActionParticipant {
                         new AttributeChoice("Add protocol='kafka'", " protocol=\"kafka\""),
                         new AttributeChoice("Add 'class' attribute", " class=\"\""))));
 
-        // #8: EnrichSourceCustomMissingXpath
         handlers.put("EnrichSourceCustomMissingXpath",
                 new AddMissingAttributeCodeAction(Collections.singletonList(
                         new AttributeChoice("Add 'xpath' attribute", " xpath=\"\""))));
 
-        // #9: EnrichSourcePropertyMissingProperty
         handlers.put("EnrichSourcePropertyMissingProperty",
                 new AddMissingAttributeCodeAction(Collections.singletonList(
                         new AttributeChoice("Add 'property' attribute", " property=\"\""))));
 
-        // #15: TriggerMissingSchedule
         handlers.put("TriggerMissingSchedule",
                 new AddMissingAttributeCodeAction(Arrays.asList(
                         new AttributeChoice("Add 'interval' attribute", " interval=\"1\""),
                         new AttributeChoice("Add 'cron' attribute", " cron=\"\""),
                         new AttributeChoice("Add 'once' attribute", " once=\"true\""))));
 
-        // #10: EnrichSourceInlineMissingContent
         handlers.put("EnrichSourceInlineMissingContent",
                 new InsertChildElementCodeAction(
                         "Add inline content placeholder",
                         "<inline xmlns=\"\"/>"));
 
-        // #11: LogCustomMissingProperties
         handlers.put("LogCustomMissingProperties",
                 new InsertChildElementCodeAction(
                         "Add <property> child element",
                         "<property name=\"\" value=\"\"/>"));
 
-        // #12: UnreachableCode
         handlers.put("UnreachableCode",
                 new RemoveElementCodeAction("Remove unreachable mediator", true));
 
-        // #13: DuplicateSwitchCase
         handlers.put("DuplicateSwitchCase",
                 new RemoveElementCodeAction("Remove duplicate case", false));
 
-        // #14: UndefinedVariable
         handlers.put("UndefinedVariable", new InsertVariableDefinitionCodeAction());
     }
 }
