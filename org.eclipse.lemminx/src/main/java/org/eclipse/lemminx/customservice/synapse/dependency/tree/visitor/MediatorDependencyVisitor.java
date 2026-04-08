@@ -467,8 +467,12 @@ public class MediatorDependencyVisitor extends AbstractMediatorVisitor {
     @Override
     protected void visitFilter(Filter node) {
 
-        addAnonymousOrAttributeSequence(node.getThen().getMediatorList(), node.getThen().getSequence());
-        addAnonymousOrAttributeSequence(node.getElse_().getMediatorList(), node.getElse_().getSequence());
+        if (node.getThen() != null) {
+            addAnonymousOrAttributeSequence(node.getThen().getMediatorList(), node.getThen().getSequence());
+        }
+        if (node.getElse_() != null) {
+            addAnonymousOrAttributeSequence(node.getElse_().getMediatorList(), node.getElse_().getSequence());
+        }
     }
 
     @Override

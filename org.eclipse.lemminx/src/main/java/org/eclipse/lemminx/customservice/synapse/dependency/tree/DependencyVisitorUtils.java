@@ -52,8 +52,12 @@ public class DependencyVisitorUtils {
     public static Dependency visitSequence(String projectPath, String sequenceName, DependencyLookUp dependencyLookUp) {
 
         String inSequencePath = DependencyVisitorUtils.getDependencyPath(sequenceName, "sequences", projectPath);
+        if (dependencyLookUp.isVisited(inSequencePath)) {
+           return null;
+        }
+        dependencyLookUp.addToVisitedPaths(inSequencePath);
         if (inSequencePath != null) {
-            Dependency dependency = dependencyLookUp.getDependency(sequenceName);
+            Dependency dependency = dependencyLookUp.getDependency(inSequencePath);
             if (dependency != null) {
                 return dependency;
             }
