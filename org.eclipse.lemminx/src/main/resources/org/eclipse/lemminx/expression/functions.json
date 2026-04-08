@@ -206,6 +206,35 @@
         "category": 2
       },
       {
+        "label": "log(value:number, base:number)",
+        "insertText": "log($1, $2)",
+        "details": "Returns the logarithm with specified base",
+        "signature": {
+          "value": "number",
+          "base": "number"
+        },
+        "category": 2
+      },
+      {
+        "label": "round(value:number)",
+        "insertText": "round($1)",
+        "details": "Rounds a number to the nearest integer",
+        "signature": {
+          "value": "number"
+        },
+        "category": 2
+      },
+      {
+        "label": "round(value:number, decimalPlaces:integer)",
+        "insertText": "round($1, $2)",
+        "details": "Rounds a number to specified decimal places",
+        "signature": {
+          "value": "number",
+          "decimalPlaces": "integer"
+        },
+        "category": 2
+      },
+      {
         "label": "pow(base:integer, exponent:integer)",
         "insertText": "pow($1, $2)",
         "details": "Returns the result of raising base to the power of exponent",
@@ -240,6 +269,16 @@
         "details": "Retrieve the registry value at the specified path",
         "signature": {
           "path": "string"
+        },
+        "category": 4
+      },
+      {
+        "label": "registry(path:string, propertyKey:string)",
+        "insertText": "registry($1, $2)",
+        "details": "Retrieve the registry value with property key",
+        "signature": {
+          "path": "string",
+          "propertyKey": "string"
         },
         "category": 4
       }
@@ -308,6 +347,16 @@
         "details": "Encodes a string for safe inclusion in a URL",
         "signature": {
           "value": "string"
+        },
+        "category": 7
+      },
+      {
+        "label": "urlEncode(value:string, charset:string)",
+        "insertText": "urlEncode($1, $2)",
+        "details": "Encodes a string for safe inclusion in a URL with charset",
+        "signature": {
+          "value": "string",
+          "charset": "string"
         },
         "category": 7
       }
@@ -411,6 +460,9 @@
         "label": "boolean(value:any)",
         "insertText": "boolean($1)",
         "details": "Converts the value to a boolean",
+        "signature": {
+          "value": "any"
+        },
         "category": 9
       },
       {
@@ -458,9 +510,19 @@
         "category": 11
       },
       {
+        "label": "formatDateTime(input:string, newFormat:string)",
+        "insertText": "formatDateTime($1, $2)",
+        "details": "Format the given time/date to a new format",
+        "signature": {
+          "input": "string",
+          "newFormat": "string"
+        },
+        "category": 11
+      },
+      {
         "label": "formatDateTime(input:string, oldFormat:string, newFormat:string)",
         "insertText": "formatDateTime($1, $2, $3)",
-        "details": "Transform the given time/date",
+        "details": "Transform the given time/date from old format to new format",
         "signature": {
           "input": "string",
           "oldFormat": "string",
@@ -479,6 +541,16 @@
         "details": "Evaluate XPATH expression",
         "signature": {
           "xpath": "string"
+        },
+        "category": 12
+      },
+      {
+        "label": "xpath(xpath:string, variableName:string)",
+        "insertText": "xpath($1, $2)",
+        "details": "Evaluate XPATH expression with variable name",
+        "signature": {
+          "xpath": "string",
+          "variableName": "string"
         },
         "category": 12
       }

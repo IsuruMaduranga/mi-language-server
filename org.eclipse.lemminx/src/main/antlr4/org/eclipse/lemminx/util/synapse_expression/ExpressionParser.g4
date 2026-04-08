@@ -41,6 +41,7 @@ factor
     | parameterAccess
     | propertyAccess
     | LPAREN expression RPAREN
+    | NOT factor
     ;
 
 keywords

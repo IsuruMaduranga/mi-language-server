@@ -100,8 +100,11 @@ public class SchemaGenerate {
                     sb.append("                <xs:complexType>\n" +
                             "                    <xs:all>\n");
                     for (OperationParameter parameter : action.getParameters()) {
+                        String minOccurs = parameter.isRequired() ? "1" : "0";
+                        String xsdType = parameter.getXsdType() != null ? parameter.getXsdType() : "xs:string";
                         sb.append("                        <xs:element name=\"" + parameter.getName() +
-                                "\" type=\"xs:string\" minOccurs=\"0\" maxOccurs=\"1\" />\n");
+                                "\" type=\"" + xsdType + "\" minOccurs=\"" + minOccurs +
+                                "\" maxOccurs=\"1\" />\n");
                     }
                     sb.append("                    </xs:all>\n");
                     sb.append("                    <xs:attribute name=\"configKey\" type=\"xs:string\"/>\n");

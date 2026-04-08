@@ -149,7 +149,7 @@
                         </xs:element>
 
                     </xs:choice>
-                    <xs:attribute name="uri-template" type="xs:string" use="optional"/>
+                    <xs:attribute name="uri-template" type="xs:string" use="required"/>
                     <xs:attribute name="method">
                         <xs:simpleType>
                             <xs:restriction base="xs:string">
@@ -233,8 +233,8 @@
                         <xs:element name="member" minOccurs="2" maxOccurs="unbounded">
                             <xs:complexType>
                                 <xs:attribute name="hostName" type="xs:string" use="required"/>
-                                <xs:attribute name="httpPort" type="xs:string" use="optional"/>
-                                <xs:attribute name="httpsPort" type="xs:string" use="optional"/>
+                                <xs:attribute name="httpPort" type="integerOrExpression" use="optional"/>
+                                <xs:attribute name="httpsPort" type="integerOrExpression" use="optional"/>
                             </xs:complexType>
                         </xs:element>
                     </xs:choice>
@@ -433,9 +433,9 @@
                 <xs:complexType>
                     <xs:all>
                         <xs:element name="errorCodes" minOccurs="0" maxOccurs="1" type="xs:string"/>
-                        <xs:element name="initialDuration" minOccurs="0" maxOccurs="1" type="xs:string"/>
+                        <xs:element name="initialDuration" minOccurs="0" maxOccurs="1" type="integerOrExpression"/>
                         <xs:element name="progressionFactor" minOccurs="0" maxOccurs="1" type="xs:string"/>
-                        <xs:element name="maximumDuration" minOccurs="0" maxOccurs="1" type="xs:string"/>
+                        <xs:element name="maximumDuration" minOccurs="0" maxOccurs="1" type="integerOrExpression"/>
                     </xs:all>
                 </xs:complexType>
             </xs:element>
@@ -443,8 +443,8 @@
                 <xs:complexType>
                     <xs:all>
                         <xs:element name="errorCodes" minOccurs="0" maxOccurs="1" type="xs:string"/>
-                        <xs:element name="retriesBeforeSuspension" minOccurs="0" maxOccurs="1" type="xs:string"/>
-                        <xs:element name="retryDelay" minOccurs="0" maxOccurs="1" type="xs:string"/>
+                        <xs:element name="retriesBeforeSuspension" minOccurs="0" maxOccurs="1" type="integerOrExpression"/>
+                        <xs:element name="retryDelay" minOccurs="0" maxOccurs="1" type="integerOrExpression"/>
                     </xs:all>
                 </xs:complexType>
             </xs:element>

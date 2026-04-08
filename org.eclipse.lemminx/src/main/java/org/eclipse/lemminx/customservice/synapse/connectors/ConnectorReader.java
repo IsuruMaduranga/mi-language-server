@@ -17,6 +17,7 @@ package org.eclipse.lemminx.customservice.synapse.connectors;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorAction;
@@ -223,6 +224,10 @@ public class ConnectorReader {
     private void readUISchema(Connector connector) {
 
         addUISchemasFromConnector(connector);
+        // Extract required flags from shipped UI schemas BEFORE generating schemas for
+        // actions that lack them. Auto-generated schemas always set required=false, so
+        // reading them back would be a no-op (updateRequiredFlags only sets true).
+        updateRequiredFlags(connector);
         generateUISchemasIfNeeded(connector);
     }
 
@@ -301,6 +306,80 @@ public class ConnectorReader {
         String schema = Utils.readFile(file);
         JsonObject uiJson = Utils.getJsonObject(schema);
         return uiJson.get(Constant.OPERATION_NAME);
+    }
+
+    /**
+     * After UI schemas are loaded, read each action's UI schema JSON to extract
+     * required flags and update the OperationParameter objects accordingly.
+     */
+    private void updateRequiredFlags(Connector connector) {
+
+        for (ConnectorAction action : connector.getActions()) {
+            String uiSchemaPath = action.getUiSchemaPath();
+            if (StringUtils.isEmpty(uiSchemaPath)) {
+                continue;
+            }
+            try {
+                File uiSchemaFile = new File(uiSchemaPath);
+                if (!uiSchemaFile.exists()) {
+                    continue;
+                }
+                String content = Utils.readFile(uiSchemaFile);
+                JsonObject uiJson = JsonParser.parseString(content).getAsJsonObject();
+                if (!uiJson.has(Constant.ELEMENTS)) {
+                    continue;
+                }
+                JsonArray elements = uiJson.getAsJsonArray(Constant.ELEMENTS);
+                for (JsonElement elem : elements) {
+                    JsonObject element = elem.getAsJsonObject();
+                    if (!element.has(Constant.TYPE) || !Constant.ATTRIBUTE.equals(
+                            element.get(Constant.TYPE).getAsString())) {
+                        continue;
+                    }
+                    if (!element.has(Constant.VALUE)) {
+                        continue;
+                    }
+                    JsonObject value = element.getAsJsonObject(Constant.VALUE);
+                    if (value.has(Constant.NAME)) {
+                        String paramName = value.get(Constant.NAME).getAsString();
+                        for (OperationParameter param : action.getParameters()) {
+                            if (paramName.equals(param.getName())) {
+                                if (value.has(Constant.REQUIRED) &&
+                                        value.get(Constant.REQUIRED).getAsBoolean()) {
+                                    param.setRequired(true);
+                                }
+                                if (value.has(Constant.INPUT_TYPE)) {
+                                    String inputType = value.get(Constant.INPUT_TYPE).getAsString();
+                                    param.setXsdType(mapInputTypeToXsd(inputType));
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.log(Level.WARNING, "Error reading UI schema for required flags: " + action.getName(), e);
+            }
+        }
+    }
+
+    /**
+     * Maps a UI schema inputType to the appropriate XSD type for schema generation.
+     */
+    private static String mapInputTypeToXsd(String inputType) {
+        if (inputType == null) {
+            return "xs:string";
+        }
+        switch (inputType) {
+            case "number":
+            case "integer":
+                return "integerOrExpression";
+            case "boolean":
+            case "booleanOrExpression":
+                return "xs:boolean";
+            default:
+                return "xs:string";
+        }
     }
 
     private void readOutputSchema(Connector connector) {

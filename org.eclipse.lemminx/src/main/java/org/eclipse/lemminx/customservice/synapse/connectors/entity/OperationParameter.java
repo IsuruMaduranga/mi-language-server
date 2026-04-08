@@ -18,11 +18,19 @@ public class OperationParameter {
 
     private String name;
     private String description;
+    private boolean required;
+    private String xsdType = "xs:string";
 
     public OperationParameter(String name, String description) {
 
+        this(name, description, false);
+    }
+
+    public OperationParameter(String name, String description, boolean required) {
+
         this.name = name;
         this.description = description;
+        this.required = required;
     }
 
     public String getName() {
@@ -33,5 +41,25 @@ public class OperationParameter {
     public String getDescription() {
 
         return description;
+    }
+
+    public boolean isRequired() {
+
+        return required;
+    }
+
+    public void setRequired(boolean required) {
+
+        this.required = required;
+    }
+
+    public String getXsdType() {
+
+        return xsdType;
+    }
+
+    public void setXsdType(String xsdType) {
+
+        this.xsdType = xsdType;
     }
 }

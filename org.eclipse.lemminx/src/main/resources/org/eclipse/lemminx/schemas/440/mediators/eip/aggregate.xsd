@@ -21,6 +21,7 @@
         targetNamespace="http://ws.apache.org/ns/synapse"
         xmlns="http://ws.apache.org/ns/synapse">
 
+    <xs:include schemaLocation="../../misc/common.xsd"/>
     <xs:include schemaLocation="../mediators.xsd"/>
 
     <xs:element name="aggregate">
@@ -42,8 +43,8 @@
                         <xs:sequence>
                             <xs:element name="messageCount" minOccurs="0" maxOccurs="1">
                                 <xs:complexType>
-                                    <xs:attribute name="min" type="xs:string" use="optional"/>
-                                    <xs:attribute name="max" type="xs:string" use="optional"/>
+                                    <xs:attribute name="min" type="integerOrExpression" use="optional"/>
+                                    <xs:attribute name="max" type="integerOrExpression" use="optional"/>
                                 </xs:complexType>
                             </xs:element>
                         </xs:sequence>

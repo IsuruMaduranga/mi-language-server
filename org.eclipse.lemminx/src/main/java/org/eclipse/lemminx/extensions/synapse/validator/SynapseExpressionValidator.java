@@ -120,10 +120,13 @@ public class SynapseExpressionValidator implements XMLComponent, XMLDocumentFilt
                 List<ExpressionError> errors = getExpressionSyntaxErrors(expression);
                 if (!errors.isEmpty()) {
                     for (ExpressionError error : errors) {
+                        short severity = error.isWarning()
+                                ? XMLErrorReporter.SEVERITY_WARNING
+                                : XMLErrorReporter.SEVERITY_ERROR;
                         errorReporterForXML.reportError(locator, XMLModelMessageFormatter.XML_MODEL_DOMAIN,
                                 INVALID_SYNAPSE_EXPRESSION_IN_ATTRIBUTE,
                                 new Object[]{attributes.getLocalName(i), error.getFullMessage(), error},
-                                XMLErrorReporter.SEVERITY_ERROR);
+                                severity);
                     }
                 }
             }
@@ -213,9 +216,12 @@ public class SynapseExpressionValidator implements XMLComponent, XMLDocumentFilt
                 List<ExpressionError> errors = getExpressionSyntaxErrors(expression);
                 if (!errors.isEmpty()) {
                     for (ExpressionError error : errors) {
+                        short severity = error.isWarning()
+                                ? XMLErrorReporter.SEVERITY_WARNING
+                                : XMLErrorReporter.SEVERITY_ERROR;
                         errorReporterForXML.reportError(locator, XMLModelMessageFormatter.XML_MODEL_DOMAIN,
                                 INVALID_EXPRESSION_IN_CONTENT, new Object[]{xmlString, error.getFullMessage(), error},
-                                XMLErrorReporter.SEVERITY_ERROR);
+                                severity);
                     }
                 }
             }

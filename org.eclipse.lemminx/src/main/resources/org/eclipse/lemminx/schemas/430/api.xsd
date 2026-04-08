@@ -62,7 +62,7 @@
         <xs:attribute name="name" type="xs:string" use="required"/>
         <xs:attribute name="context" type="xs:string" use="required"/>
         <xs:attribute name="hostname" type="xs:string" use="optional"/>
-        <xs:attribute name="port" type="xs:string" use="optional"/>
+        <xs:attribute name="port" type="integerOrExpression" use="optional"/>
         <xs:attribute name="version" type="xs:string" use="optional"/>
         <xs:attribute name="version-type" use="optional">
             <xs:simpleType>
