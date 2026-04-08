@@ -15,8 +15,10 @@
 package org.eclipse.lemminx.customservice.synapse.connectors;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.lemminx.customservice.SynapseLanguageClientAPI;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
 import org.eclipse.lemminx.customservice.synapse.inbound.conector.InboundConnectorHolder;
 import org.eclipse.lemminx.customservice.synapse.mediator.TryOutConstants;
 import org.eclipse.lemminx.customservice.synapse.utils.Constant;
@@ -27,7 +29,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -144,6 +148,40 @@ public class NewProjectConnectorLoader extends AbstractConnectorLoader {
         addDependencyProjectConnectorPaths();
 		log.info("Loading connectors from " + connectorsZipFolderPath.size() + " paths for project: " + projectId);
         super.loadConnector();
+        markProjectConnectors();
+    }
+
+    /**
+     * Marks each loaded connector with whether it originates from the project itself.
+     * A connector is considered to be from the project if its zip was sourced from one of the
+     * base connector paths (the project's own connector directory or the USER_HOME downloaded
+     * directory). Connectors sourced from dependency integration project directories are marked
+     * as not from the project.
+     * If the same connector exists in both a base path and a dependency path, the base path takes
+     * precedence since it is loaded first.
+     */
+    private void markProjectConnectors() {
+
+        log.info("Marking project connectors for project: " + projectId);
+        Set<String> projectConnectorZipNames = new HashSet<>();
+        for (File zip : connectorHolder.getConnectorZips()) {
+            if (baseConnectorsZipFolderPaths.contains(zip.getParent())) {
+                String name = zip.getName();
+                projectConnectorZipNames.add(name.substring(0, name.lastIndexOf(Constant.DOT)));
+            }
+        }
+        int markedCount = 0;
+        for (Connector connector : connectorHolder.getConnectors()) {
+            String extractedPath = connector.getExtractedConnectorPath();
+            if (StringUtils.isNotBlank(extractedPath)) {
+                boolean isFromProject = projectConnectorZipNames.contains(FilenameUtils.getName(extractedPath));
+                connector.setFromProject(isFromProject);
+                if (isFromProject) {
+                    markedCount++;
+                }
+            }
+        }
+        log.info("Marked " + markedCount + " project connector(s) for project: " + projectId);
     }
 
     @Override
