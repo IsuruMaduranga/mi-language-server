@@ -17,26 +17,45 @@ package org.eclipse.lemminx.customservice.synapse.dependency.tree;
 import org.eclipse.lemminx.customservice.synapse.dependency.tree.pojo.Dependency;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class DependencyLookUp {
 
-    private final Map<String, Dependency> dependencyMap;
+    private final Map<String, Dependency> cachedDependencyMap;
+    private final Set<String> visitedPathSet;
 
     public DependencyLookUp() {
 
-        dependencyMap = new HashMap<>();
+        cachedDependencyMap = new HashMap<>();
+        visitedPathSet = new HashSet<>();
     }
 
     public void addDependency(String path, Dependency dependency) {
 
         if (path != null && dependency != null) {
-            dependencyMap.put(path, dependency);
+            cachedDependencyMap.put(path, dependency);
         }
     }
 
     public Dependency getDependency(String path) {
 
-        return dependencyMap.get(path);
+        return cachedDependencyMap.get(path);
+    }
+
+    public void addToVisitedPaths(String path) {
+
+        if (path != null) {
+            visitedPathSet.add(path);
+        }
+    }
+
+    public boolean isVisited(String path) {
+
+        if (path == null) {
+            return false;
+        }
+        return visitedPathSet.contains(path);
     }
 }
