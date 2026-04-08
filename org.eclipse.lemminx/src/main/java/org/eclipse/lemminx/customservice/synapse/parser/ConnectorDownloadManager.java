@@ -60,7 +60,7 @@ public class ConnectorDownloadManager {
 
     private static final Logger LOGGER = Logger.getLogger(ConnectorDownloadManager.class.getName());
 
-    public static List<String> downloadDependencies(String projectPath, List<DependencyDetails> dependencies) {
+    public static ConnectorDependencyDownloadResult downloadDependencies(String projectPath, List<DependencyDetails> dependencies) {
 
         String projectId = new File(projectPath).getName() + "_" + Utils.getHash(projectPath);
         File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI, Constant.CONNECTORS,
@@ -80,15 +80,15 @@ public class ConnectorDownloadManager {
 
         deleteRemovedConnectors(downloadDirectory, dependencies, projectPath);
         List<String> failedDependencies = new ArrayList<>();
+        List<String> fromIntegrationProjectDependencies = new ArrayList<>();
 
         for (DependencyDetails dependency : dependencies) {
-            String failedDependencyId =
+            String dependencyId =
                     dependency.getGroupId() + Constant.HYPHEN + dependency.getArtifact() + Constant.HYPHEN + dependency.getVersion();
-            boolean isFromIntegrationProjectDependency = isConnectorFromIntegrationProjectDependency(dependency.getArtifact());
-            if (isFromIntegrationProjectDependency) {
-                LOGGER.log(Level.WARNING, "Connector " + failedDependencyId +
+            if (isConnectorFromIntegrationProjectDependency(dependency.getArtifact())) {
+                LOGGER.log(Level.WARNING, "Connector " + dependencyId +
                         " is provided by an integration project dependency. Download not allowed.");
-                failedDependencies.add(failedDependencyId);
+                fromIntegrationProjectDependencies.add(dependencyId);
                 continue;
             }
             try {
@@ -107,14 +107,12 @@ public class ConnectorDownloadManager {
                             downloadDirectory, Constant.ZIP_EXTENSION_NO_DOT, projectPath);
                 }
             } catch (Exception e) {
-                String failedDependency =
-                        dependency.getGroupId() + "-" + dependency.getArtifact() + "-" + dependency.getVersion();
                 LOGGER.log(Level.WARNING,
-                        "Error occurred while downloading dependency " + failedDependency + ": " + e.getMessage());
-                failedDependencies.add(failedDependency);
+                        "Error occurred while downloading dependency " + dependencyId + ": " + e.getMessage());
+                failedDependencies.add(dependencyId);
             }
         }
-        return failedDependencies;
+        return new ConnectorDependencyDownloadResult(failedDependencies, fromIntegrationProjectDependencies);
     }
 
     /**
