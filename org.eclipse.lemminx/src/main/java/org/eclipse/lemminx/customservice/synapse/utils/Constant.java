@@ -660,6 +660,7 @@ public class Constant {
     public static final String VSCODE_FOLDER = ".vscode";
     public static final String SETTINGS_CONFIG = "settings.json";
     public static final String GITKEEP = ".gitkeep";
+	public static final String UTILITY = "utility";
     public static final Map<String, String> MI_SUPPORTED_VERSION_MAP = new HashMap<>() {{
         put("4.3.0", "4.3.0");
         put("4.4.0", "4.4.0");

@@ -335,7 +335,7 @@ public class MediatorHandler {
             operation = ((Connector) node).getMethod();
         } else {
             connectorName = mediator.split("\\.")[0];
-            operation = mediator.split("\\.")[1];
+            operation = getConnectorOperationName(mediator, connectorName);
         }
         if (!connectorHolder.exists(connectorName)) {
             return null;
@@ -651,7 +651,7 @@ public class MediatorHandler {
     private JsonObject getConnectorUiSchema(String mediatorName, TextDocumentIdentifier documentIdentifier, Position position) {
 
         String connectorName = mediatorName.split("\\.")[0];
-        String operationName = mediatorName.split("\\.")[1];
+        String operationName = getConnectorOperationName(mediatorName, connectorName);
         if (connectorHolder.exists(connectorName)) {
             org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector
                     connector = connectorHolder.getConnector(connectorName);
@@ -742,4 +742,12 @@ public class MediatorHandler {
 
         return String.valueOf(value);
     }
+	
+	private String getConnectorOperationName(String mediatorName, String connectorName) {
+
+		String[] mediatorNameParts = mediatorName.split("\\.");
+		// The legacy series of the utility module has its operations in the utility.operation.method format
+        return (Constant.UTILITY.equalsIgnoreCase(connectorName) && mediatorNameParts.length == 3) ? 
+			mediatorNameParts[1] + Constant.DOT + mediatorNameParts[2]: mediatorNameParts[1];
+	}
 }
