@@ -22,9 +22,11 @@ import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.fge.jackson.JsonLoader;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.OperationParameter;
 import org.eclipse.lemminx.customservice.synapse.parser.Node;
 import org.eclipse.lemminx.customservice.synapse.parser.OverviewPageDetailsResponse;
 import org.eclipse.lemminx.customservice.synapse.syntaxTree.SyntaxTreeGenerator;
@@ -414,5 +416,130 @@ public class InboundConnectorHolder {
             LOGGER.log(Level.SEVERE, "Failed to serialize inbound-connector metadata to a JSON string.", e);
         }
         return localInboundConnectorList;
+    }
+
+    /**
+     * Returns the {@link InboundEndpointInfo} for a bundled inbound endpoint
+     * (those shipped inside the LS jar, e.g. {@code http}, {@code jms},
+     * {@code file}), or {@code null} if no bundled schema is registered under
+     * the given id. No disk I/O is performed.
+     */
+    public InboundEndpointInfo getBundledInboundEndpoint(String id) {
+
+        if (id == null || localInboundConnectors == null) {
+            return null;
+        }
+        JsonObject schema = localInboundConnectors.get(id);
+        if (schema == null) {
+            return null;
+        }
+        return buildInboundEndpointInfo(schema, "bundled");
+    }
+
+    /**
+     * Builds an {@link InboundEndpointInfo} from an already-parsed uischema JSON
+     * object. Callers that have just downloaded and parsed a {@code mi-inbound-*}
+     * artifact use this to produce the response payload with
+     * {@code source = "downloaded"}.
+     */
+    public static InboundEndpointInfo buildInboundEndpointInfo(JsonObject schema, String source) {
+
+        InboundEndpointInfo info = new InboundEndpointInfo();
+        info.setSource(source);
+        if (schema.has(Constant.NAME)) {
+            info.setName(schema.get(Constant.NAME).getAsString());
+        }
+        if (schema.has(Constant.ID)) {
+            info.setId(schema.get(Constant.ID).getAsString());
+        }
+        if (schema.has(Constant.TITLE)) {
+            info.setDisplayName(schema.get(Constant.TITLE).getAsString());
+        }
+        if (schema.has(Constant.HELP)) {
+            info.setDescription(schema.get(Constant.HELP).getAsString());
+        } else if (schema.has(Constant.DESCRIPTION)) {
+            info.setDescription(schema.get(Constant.DESCRIPTION).getAsString());
+        }
+        if (schema.has(Constant.TYPE)) {
+            info.setType(schema.get(Constant.TYPE).getAsString());
+        }
+        if (schema.has(Constant.ELEMENTS) && schema.get(Constant.ELEMENTS).isJsonArray()) {
+            List<OperationParameter> parameters = new ArrayList<>();
+            flattenAttributes(schema.getAsJsonArray(Constant.ELEMENTS), parameters);
+            info.setParameters(parameters);
+        }
+        return info;
+    }
+
+    /**
+     * Walks the uischema {@code elements} array and collects every
+     * {@code attribute} entry as an {@link OperationParameter}. Recurses into
+     * {@code attributeGroup} entries. Hidden attributes are skipped.
+     */
+    private static void flattenAttributes(JsonArray elements, List<OperationParameter> out) {
+
+        for (int i = 0; i < elements.size(); i++) {
+            if (!elements.get(i).isJsonObject()) {
+                continue;
+            }
+            JsonObject element = elements.get(i).getAsJsonObject();
+            String type = element.has(Constant.TYPE) ? element.get(Constant.TYPE).getAsString() : null;
+            if (type == null || !element.has(Constant.VALUE) || !element.get(Constant.VALUE).isJsonObject()) {
+                continue;
+            }
+            JsonObject value = element.getAsJsonObject(Constant.VALUE);
+            if (Constant.ATTRIBUTE_GROUP.equals(type)) {
+                if (value.has(Constant.ELEMENTS) && value.get(Constant.ELEMENTS).isJsonArray()) {
+                    flattenAttributes(value.getAsJsonArray(Constant.ELEMENTS), out);
+                }
+            } else if (Constant.ATTRIBUTE.equals(type)) {
+                if (value.has(Constant.HIDDEN) && value.get(Constant.HIDDEN).getAsBoolean()) {
+                    continue;
+                }
+                String name = value.has(Constant.NAME) ? value.get(Constant.NAME).getAsString() : null;
+                if (StringUtils.isBlank(name)) {
+                    continue;
+                }
+                String description;
+                if (value.has(Constant.HELP_TIP)) {
+                    description = value.get(Constant.HELP_TIP).getAsString();
+                } else if (value.has(Constant.DISPLAY_NAME)) {
+                    description = value.get(Constant.DISPLAY_NAME).getAsString();
+                } else {
+                    description = StringUtils.EMPTY;
+                }
+                boolean required = false;
+                if (value.has(Constant.REQUIRED)) {
+                    JsonElement reqElement = value.get(Constant.REQUIRED);
+                    if (reqElement.isJsonPrimitive()) {
+                        // required is typically the string "true"/"false" in inbound uischemas.
+                        String reqString = reqElement.getAsString();
+                        required = Boolean.parseBoolean(reqString);
+                    }
+                }
+                OperationParameter param = new OperationParameter(name, description, required);
+                param.setXsdType(mapInboundInputTypeToXsd(
+                        value.has(Constant.INPUT_TYPE) ? value.get(Constant.INPUT_TYPE).getAsString() : null));
+                out.add(param);
+            }
+        }
+    }
+
+    private static String mapInboundInputTypeToXsd(String inputType) {
+
+        if (inputType == null) {
+            return "xs:string";
+        }
+        switch (inputType) {
+            case "number":
+            case "integer":
+                return "integerOrExpression";
+            case "boolean":
+            case "booleanOrExpression":
+            case "checkbox":
+                return "xs:boolean";
+            default:
+                return "xs:string";
+        }
     }
 }

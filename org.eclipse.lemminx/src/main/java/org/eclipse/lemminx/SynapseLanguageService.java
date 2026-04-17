@@ -35,6 +35,7 @@ import org.eclipse.lemminx.customservice.synapse.connectors.ConnectionFinder;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorDetails;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorResponse;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorInfoRequest;
 import org.eclipse.lemminx.customservice.synapse.connectors.generate.ConnectorGenerateRequest;
 import org.eclipse.lemminx.customservice.synapse.connectors.generate.ConnectorGeneratorResponse;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.TestConnectionRequest;
@@ -66,6 +67,8 @@ import org.eclipse.lemminx.customservice.synapse.expression.pojo.HelperPanelData
 import org.eclipse.lemminx.customservice.synapse.inbound.conector.InboundConnectorResponse;
 import org.eclipse.lemminx.customservice.synapse.inbound.conector.InboundConnectorHolder;
 import org.eclipse.lemminx.customservice.synapse.inbound.conector.InboundConnectorParam;
+import org.eclipse.lemminx.customservice.synapse.inbound.conector.InboundEndpointInfo;
+import org.eclipse.lemminx.customservice.synapse.inbound.conector.InboundInfoRequest;
 import org.eclipse.lemminx.customservice.synapse.dependency.tree.DependencyScanner;
 import org.eclipse.lemminx.customservice.synapse.dependency.tree.pojo.DependencyTree;
 import org.eclipse.lemminx.customservice.synapse.mediator.tryout.TryOutManager;
@@ -94,7 +97,6 @@ import org.eclipse.lemminx.customservice.synapse.parser.config.ConfigParser;
 import org.eclipse.lemminx.customservice.synapse.parser.config.ConfigurableEntry;
 import org.eclipse.lemminx.customservice.synapse.parser.pom.PomParser;
 import org.eclipse.lemminx.customservice.synapse.parser.ConnectorDownloadManager;
-import org.eclipse.lemminx.customservice.synapse.parser.DependencyDetails;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.AbstractResourceFinder;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.ArtifactFileScanner;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.RegistryFileScanner;
@@ -373,80 +375,168 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     }
 
     @Override
-    public CompletableFuture<Either<ConnectorResponse, String>> resolveConnector(UpdateDependencyRequest request) {
+    public CompletableFuture<Either<Connector, String>> getConnectorInfo(ConnectorInfoRequest request) {
 
         return CompletableFuture.supplyAsync(() -> {
-            if (request.dependencies == null || request.dependencies.isEmpty()) {
-                return Either.forRight("At least one dependency is required");
+            if (StringUtils.isAnyBlank(request.groupId, request.artifactId, request.version)) {
+                return Either.forRight("groupId, artifactId, and version are required");
             }
             if (StringUtils.isBlank(projectUri)) {
                 return Either.forRight("Project is not initialized");
             }
 
-            String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
-            File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
-                    Constant.CONNECTORS, projectId).toFile();
-            File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
-            File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
-            downloadDir.mkdirs();
-            extractDir.mkdirs();
-
-            List<Connector> resolvedConnectors = new ArrayList<>();
-            List<String> errors = new ArrayList<>();
-
-            for (DependencyDetails dep : request.dependencies) {
-                if (StringUtils.isAnyBlank(dep.getGroupId(), dep.getArtifact(), dep.getVersion())) {
-                    errors.add("Skipping dependency with missing groupId, artifact, or version");
-                    continue;
-                }
-
-                try {
-                    // Download if not already present
-                    File zipFile = new File(downloadDir,
-                            dep.getArtifact() + "-" + dep.getVersion() + Constant.ZIP_EXTENSION);
-                    if (!zipFile.exists()) {
-                        File localCopy = Utils.getDependencyFromLocalRepo(dep.getGroupId(),
-                                dep.getArtifact(), dep.getVersion(), dep.getType());
-                        if (localCopy != null) {
-                            Utils.copyFile(localCopy.getPath(), downloadDir.getPath());
-                        } else {
-                            Utils.downloadConnector(dep.getGroupId(), dep.getArtifact(), dep.getVersion(),
-                                    downloadDir, Constant.ZIP_EXTENSION_NO_DOT, projectUri);
-                        }
-                    }
-
-                    if (!zipFile.exists()) {
-                        errors.add("Failed to download connector: " + dep.getArtifact());
-                        continue;
-                    }
-
-                    // Extract if not already extracted
-                    File connectorExtractDir = new File(extractDir,
-                            dep.getArtifact() + "-" + dep.getVersion());
-                    if (!connectorExtractDir.exists()) {
-                        Utils.extractZip(zipFile, connectorExtractDir);
-                    }
-
-                    // Read connector metadata
-                    ConnectorReader connectorReader = new ConnectorReader();
-                    Connector connector = connectorReader.readConnector(
-                            connectorExtractDir.getAbsolutePath(), projectUri);
-                    if (connector != null) {
-                        resolvedConnectors.add(connector);
-                    } else {
-                        errors.add("Failed to read connector metadata: " + dep.getArtifact());
-                    }
-                } catch (IOException e) {
-                    log.log(Level.WARNING, "Error resolving connector: " + dep.getArtifact(), e);
-                    errors.add("Error resolving " + dep.getArtifact() + ": " + e.getMessage());
-                }
+            File extractDir;
+            File zipFile;
+            try {
+                ResolvedArtifact artifact = downloadAndExtractArtifact(
+                        request.groupId, request.artifactId, request.version);
+                extractDir = artifact.extractDir;
+                zipFile = artifact.zipFile;
+            } catch (IOException e) {
+                log.log(Level.WARNING, "Error resolving connector: " + request.artifactId, e);
+                return Either.forRight("Error resolving " + request.artifactId + ": " + e.getMessage());
+            } catch (IllegalStateException e) {
+                return Either.forRight(e.getMessage());
             }
 
-            if (resolvedConnectors.isEmpty() && !errors.isEmpty()) {
-                return Either.forRight(String.join("; ", errors));
+            ConnectorReader connectorReader = new ConnectorReader();
+            Connector connector = connectorReader.readConnector(extractDir.getAbsolutePath(), projectUri);
+            if (connector == null) {
+                return Either.forRight("Failed to read connector metadata: " + request.artifactId);
             }
-            return Either.forLeft(new ConnectorResponse(resolvedConnectors));
+
+            // Upsert into ConnectorHolder so subsequent availableConnectors queries find
+            // this connector. Replace any older registration of the same name so the
+            // caller's requested version wins.
+            if (connectorHolder.exists(connector.getName())) {
+                connectorHolder.removeConnector(connector.getName());
+            }
+            connector.setConnectorZipPath(zipFile.getAbsolutePath());
+            connectorHolder.addConnector(connector);
+            return Either.forLeft(connector);
         });
+    }
+
+    @Override
+    public CompletableFuture<Either<InboundEndpointInfo, String>> getInboundInfo(InboundInfoRequest request) {
+
+        return CompletableFuture.supplyAsync(() -> {
+            // Bundled lookup first — no download needed.
+            if (StringUtils.isNotBlank(request.id)) {
+                InboundEndpointInfo bundled = inboundConnectorHolder.getBundledInboundEndpoint(request.id);
+                if (bundled != null) {
+                    return Either.forLeft(bundled);
+                }
+                if (StringUtils.isAnyBlank(request.groupId, request.artifactId, request.version)) {
+                    return Either.forRight("Bundled inbound not found for id: " + request.id);
+                }
+            }
+
+            if (StringUtils.isAnyBlank(request.groupId, request.artifactId, request.version)) {
+                return Either.forRight(
+                        "Provide either id (for bundled inbound) or {groupId, artifactId, version}");
+            }
+            if (StringUtils.isBlank(projectUri)) {
+                return Either.forRight("Project is not initialized");
+            }
+
+            File extractDir;
+            try {
+                ResolvedArtifact artifact = downloadAndExtractArtifact(
+                        request.groupId, request.artifactId, request.version);
+                extractDir = artifact.extractDir;
+            } catch (IOException e) {
+                log.log(Level.WARNING, "Error resolving inbound: " + request.artifactId, e);
+                return Either.forRight("Error resolving " + request.artifactId + ": " + e.getMessage());
+            } catch (IllegalStateException e) {
+                return Either.forRight(e.getMessage());
+            }
+
+            File uiSchemaFile = extractDir.toPath()
+                    .resolve(Constant.RESOURCES).resolve(Constant.UI_SCHEMA_JSON).toFile();
+            if (!uiSchemaFile.exists()) {
+                return Either.forRight("resources/uischema.json not found in " + request.artifactId);
+            }
+            try {
+                String schemaString = Utils.readFile(uiSchemaFile);
+                JsonObject schemaJson = Utils.getJsonObject(schemaString);
+                if (schemaJson == null || !schemaJson.has(Constant.NAME)) {
+                    return Either.forRight("Invalid inbound uischema in " + request.artifactId);
+                }
+                String inboundName = schemaJson.get(Constant.NAME).getAsString();
+                inboundConnectorHolder.saveInboundConnector(inboundName, schemaString);
+                return Either.forLeft(
+                        InboundConnectorHolder.buildInboundEndpointInfo(schemaJson, "downloaded"));
+            } catch (IOException e) {
+                log.log(Level.WARNING, "Error reading inbound uischema: " + request.artifactId, e);
+                return Either.forRight("Error reading " + request.artifactId + ": " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Resolves a Maven artifact to a local extracted directory. Downloads from
+     * WSO2 Nexus (or copies from the local {@code .m2} repo) if the zip isn't
+     * already cached, then extracts if needed. Both the zip and the extracted
+     * folder live under {@code ~/.wso2-mi/connectors/<projectId>/} keyed by
+     * {@code <artifactId>-<version>} so multiple versions coexist on disk.
+     *
+     * @throws IllegalStateException if the download fails to produce a zip file.
+     * @throws IOException on extract/download I/O errors.
+     */
+    private ResolvedArtifact downloadAndExtractArtifact(String groupId, String artifactId, String version)
+            throws IOException {
+
+        String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
+        File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
+                Constant.CONNECTORS, projectId).toFile();
+        File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
+        File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
+        downloadDir.mkdirs();
+        extractDir.mkdirs();
+
+        File zipFile = new File(downloadDir,
+                artifactId + "-" + version + Constant.ZIP_EXTENSION);
+        if (!zipFile.exists()) {
+            File localCopy = Utils.getDependencyFromLocalRepo(groupId, artifactId, version,
+                    Constant.ZIP_EXTENSION_NO_DOT);
+            if (localCopy != null) {
+                Utils.copyFile(localCopy.getPath(), downloadDir.getPath());
+            } else {
+                try {
+                    Utils.downloadConnector(groupId, artifactId, version, downloadDir,
+                            Constant.ZIP_EXTENSION_NO_DOT, projectUri);
+                } catch (FileNotFoundException notFound) {
+                    // HttpURLConnection throws FileNotFoundException on HTTP 404 —
+                    // i.e., the Maven repo has no artifact with these coordinates.
+                    throw new IllegalStateException("Artifact not found on WSO2 Nexus: "
+                            + groupId + ":" + artifactId + ":" + version
+                            + ". Verify the groupId, artifactId, and version are correct.");
+                }
+            }
+        }
+        if (!zipFile.exists()) {
+            throw new IllegalStateException("Failed to download artifact: "
+                    + groupId + ":" + artifactId + ":" + version);
+        }
+
+        File extractedFolder = new File(extractDir, artifactId + "-" + version);
+        if (!extractedFolder.exists()) {
+            Utils.extractZip(zipFile, extractedFolder);
+        }
+        return new ResolvedArtifact(zipFile, extractedFolder);
+    }
+
+    private static final class ResolvedArtifact {
+
+        final File zipFile;
+        final File extractDir;
+
+        ResolvedArtifact(File zipFile, File extractDir) {
+
+            this.zipFile = zipFile;
+            this.extractDir = extractDir;
+        }
     }
 
     public void updateConnectors() {
