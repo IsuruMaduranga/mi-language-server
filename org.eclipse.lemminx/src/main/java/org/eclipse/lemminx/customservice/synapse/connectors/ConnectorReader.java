@@ -95,9 +95,14 @@ public class ConnectorReader {
 
     private String getBallerinaModulePath(String moduleName, String ballerinaFolder) {
 
+        Path ballerinaPath = Paths.get(ballerinaFolder);
+        if (!Files.isDirectory(ballerinaPath)) {
+            // Non-Ballerina projects won't have src/main/ballerina — skip silently.
+            return StringUtils.EMPTY;
+        }
         List<String> ballerinaTomlPaths = new ArrayList<>();
         try {
-            Files.walk(Paths.get(ballerinaFolder))
+            Files.walk(ballerinaPath)
                     .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().equals("Ballerina.toml"))
                     .forEach(path -> ballerinaTomlPaths.add(path.toString()));
             for (String path : ballerinaTomlPaths) {
@@ -111,7 +116,7 @@ public class ConnectorReader {
             }
             return StringUtils.EMPTY;
         } catch (IOException e) {
-            log.log(Level.WARNING, "Ballerina folder not found in the project.", e);
+            log.log(Level.WARNING, "Error walking Ballerina folder: " + ballerinaFolder, e);
             return StringUtils.EMPTY;
         }
     }

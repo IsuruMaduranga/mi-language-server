@@ -1382,51 +1382,20 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             }
             NewProjectResourceFinder resourceFinder = new NewProjectResourceFinder();
             Map<String, ResourceResponse> allResources = resourceFinder.findAllResources(projectPath);
+            collectResourceNames(allResources, artifactNames, templatePaths, nameToFiles);
 
-            for (Map.Entry<String, ResourceResponse> entry : allResources.entrySet()) {
-                String resourceType = entry.getKey();
-                ResourceResponse response = entry.getValue();
-                if (response.getResources() != null) {
-                    for (Resource resource : response.getResources()) {
-                        if (resource.getName() != null) {
-                            artifactNames.add(resource.getName());
-                            // Track template file paths for parameter validation
-                            if (resource instanceof ArtifactResource &&
-                                    (resourceType.contains("emplate") || resourceType.contains("template"))) {
-                                String absPath = ((ArtifactResource) resource).getAbsolutePath();
-                                if (absPath != null) {
-                                    templatePaths.put(resource.getName(), absPath);
-                                }
-                            }
-                            // Track all artifact names for duplicate detection
-                            if (resource instanceof ArtifactResource) {
-                                String absPath = ((ArtifactResource) resource).getAbsolutePath();
-                                nameToFiles.computeIfAbsent(resource.getName(), k -> new ArrayList<>())
-                                        .add(absPath != null ? absPath : "unknown");
-                            }
-                        }
-                    }
-                }
-                // Also collect registry keys for xslt/xquery/datamapper references
-                if (response.getRegistryResources() != null) {
-                    for (Resource resource : response.getRegistryResources()) {
-                        if (resource instanceof RegistryResource) {
-                            String regKey = ((RegistryResource) resource).getRegistryKey();
-                            if (regKey != null) {
-                                artifactNames.add(regKey);
-                                // Normalize: add both gov:path and gov:/path variants
-                                if (regKey.contains(":") && !regKey.contains(":/")) {
-                                    String prefix = regKey.substring(0, regKey.indexOf(':') + 1);
-                                    String path = regKey.substring(regKey.indexOf(':') + 1);
-                                    artifactNames.add(prefix + "/" + path);
-                                } else if (regKey.contains(":/")) {
-                                    String normalized = regKey.replace(":/", ":");
-                                    artifactNames.add(normalized);
-                                }
-                            }
-                        }
-                    }
-                }
+            // Also include artifacts from dependent integration projects declared in pom.xml.
+            // These live under ~/.wso2-mi/integration-project-dependencies/<name>_<hash>/Extracted/
+            // and are populated by SynapseLanguageService at init, but this participant uses a
+            // throwaway finder, so we need to load them here too.
+            try {
+                resourceFinder.loadDependentResources(projectPath);
+                collectResourceNames(resourceFinder.getDependentResourcesMap(),
+                        artifactNames, templatePaths, nameToFiles);
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING,
+                        "Failed to load dependent project resources; cross-project references may be flagged",
+                        e);
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to build artifact name index for cross-reference validation", e);
@@ -1450,6 +1419,68 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         this.cyclicArtifacts = cycles;
         artifactIndexCache.put(projectPath, new CachedArtifactIndex(artifactNames, System.currentTimeMillis()));
         return artifactNames;
+    }
+
+    /**
+     * Walks a resource map (from either {@code findAllResources} or {@code getDependentResourcesMap})
+     * and populates the artifact-name index, template-path map, duplicate-detection map, and the
+     * normalized registry keys used for registry reference validation.
+     */
+    private void collectResourceNames(Map<String, ResourceResponse> resources,
+                                      Set<String> artifactNames,
+                                      Map<String, String> templatePaths,
+                                      Map<String, List<String>> nameToFiles) {
+        if (resources == null) {
+            return;
+        }
+        for (Map.Entry<String, ResourceResponse> entry : resources.entrySet()) {
+            String resourceType = entry.getKey();
+            ResourceResponse response = entry.getValue();
+            if (response == null) {
+                continue;
+            }
+            if (response.getResources() != null) {
+                for (Resource resource : response.getResources()) {
+                    if (resource.getName() != null) {
+                        artifactNames.add(resource.getName());
+                        // Track template file paths for parameter validation
+                        if (resource instanceof ArtifactResource &&
+                                (resourceType.contains("emplate") || resourceType.contains("template"))) {
+                            String absPath = ((ArtifactResource) resource).getAbsolutePath();
+                            if (absPath != null) {
+                                templatePaths.put(resource.getName(), absPath);
+                            }
+                        }
+                        // Track all artifact names for duplicate detection
+                        if (resource instanceof ArtifactResource) {
+                            String absPath = ((ArtifactResource) resource).getAbsolutePath();
+                            nameToFiles.computeIfAbsent(resource.getName(), k -> new ArrayList<>())
+                                    .add(absPath != null ? absPath : "unknown");
+                        }
+                    }
+                }
+            }
+            // Also collect registry keys for xslt/xquery/datamapper references
+            if (response.getRegistryResources() != null) {
+                for (Resource resource : response.getRegistryResources()) {
+                    if (resource instanceof RegistryResource) {
+                        String regKey = ((RegistryResource) resource).getRegistryKey();
+                        if (regKey != null) {
+                            artifactNames.add(regKey);
+                            // Normalize: add both gov:path and gov:/path variants
+                            if (regKey.contains(":") && !regKey.contains(":/")) {
+                                String prefix = regKey.substring(0, regKey.indexOf(':') + 1);
+                                String path = regKey.substring(regKey.indexOf(':') + 1);
+                                artifactNames.add(prefix + "/" + path);
+                            } else if (regKey.contains(":/")) {
+                                String normalized = regKey.replace(":/", ":");
+                                artifactNames.add(normalized);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**

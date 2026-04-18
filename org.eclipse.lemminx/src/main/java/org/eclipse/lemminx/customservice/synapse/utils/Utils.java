@@ -57,6 +57,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -1537,6 +1538,13 @@ public class Utils {
                     fileOutputStream.write(dataBuffer, 0, bytesRead);
                 }
             }
+        } catch (FileNotFoundException notFound) {
+            // HttpURLConnection throws FileNotFoundException on HTTP 404 — the artifact
+            // simply isn't published at these coordinates. Callers (e.g. getConnectorInfo)
+            // convert this into a clean user-facing error, so avoid logging at SEVERE.
+            logger.log(Level.INFO, "Artifact not found on remote repository: " + artifactId + "-" + version + "."
+                    + effectiveFileType + " (" + urlString + ")");
+            throw notFound;
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Error occurred while downloading dependency: " + artifactId + "-" + version + "."
                     + effectiveFileType + " from " + urlString + ". Error: " + e.getMessage());
