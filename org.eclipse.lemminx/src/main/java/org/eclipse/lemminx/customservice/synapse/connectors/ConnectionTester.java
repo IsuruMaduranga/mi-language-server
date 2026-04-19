@@ -74,7 +74,7 @@ public class ConnectionTester {
         localEntry.setKey(key);
 
         Connector connector = connectorHolder.getConnector(connectorName);
-        ConnectorAction initOperation = connector.getAction(Constant.INIT);
+        ConnectorAction initOperation = connector.getOperation(Constant.INIT);
         if (initOperation == null) {
             return new TestConnectionResponse("Connection operation not found");
         }
@@ -92,7 +92,7 @@ public class ConnectionTester {
             addPomFile(Path.of(projectRoot), tempProjectPath);
             createLocalEntryFile(tempProjectPath, localEntryXml, localEntry.getKey());
 
-            ConnectorAction testConnectionOperation = connector.getAction(Constant.TEST_CONNECTION_OPERATION);
+            ConnectorAction testConnectionOperation = connector.getOperation(Constant.TEST_CONNECTION_OPERATION);
             if (testConnectionOperation == null) {
                 return new TestConnectionResponse("Test connection operation not found");
             }

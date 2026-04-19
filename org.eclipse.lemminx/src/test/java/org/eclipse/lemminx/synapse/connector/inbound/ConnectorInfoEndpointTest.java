@@ -69,8 +69,8 @@ public class ConnectorInfoEndpointTest {
         assertEquals("http", connector.getName());
         assertEquals("0.1.8", connector.getVersion());
         assertEquals("HTTP", connector.getDisplayName());
-        assertFalse(connector.getActions().isEmpty());
-        assertFalse(connector.getConnectionUiSchema().isEmpty());
+        assertFalse(connector.getOperations().isEmpty());
+        assertFalse(connector.getConnections().isEmpty());
     }
 
     @Test
@@ -79,7 +79,7 @@ public class ConnectorInfoEndpointTest {
         ConnectorReader reader = new ConnectorReader();
         Connector connector = reader.readConnector(connectorPath, StringUtils.EMPTY);
 
-        ConnectorAction getAction = connector.getAction("get");
+        ConnectorAction getAction = connector.getOperation("get");
         assertNotNull(getAction, "GET action should exist");
         assertEquals("http.get", getAction.getTag());
         assertFalse(getAction.getParameters().isEmpty(), "Action should have parameters");
@@ -150,7 +150,7 @@ public class ConnectorInfoEndpointTest {
 
         // May return a connector but with no useful actions
         if (connector != null) {
-            assertTrue(connector.getActions().isEmpty(),
+            assertTrue(connector.getOperations().isEmpty(),
                     "Inbound connector should have no actions when read by ConnectorReader");
         }
     }
@@ -161,7 +161,7 @@ public class ConnectorInfoEndpointTest {
         ConnectorReader reader = new ConnectorReader();
         Connector connector = reader.readConnector(connectorPath, StringUtils.EMPTY);
 
-        ConnectorAction getAction = connector.getAction("get");
+        ConnectorAction getAction = connector.getOperation("get");
         assertNotNull(getAction);
 
         // Verify parameter xsdType mappings exist

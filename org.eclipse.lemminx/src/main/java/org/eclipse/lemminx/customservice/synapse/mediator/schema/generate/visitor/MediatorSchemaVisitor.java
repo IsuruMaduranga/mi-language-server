@@ -555,7 +555,7 @@ public class MediatorSchemaVisitor extends AbstractMediatorVisitor {
         org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector connector =
                 ConnectorHolder.getInstance().getConnector(node.getConnectorName());
         if (connector != null) {
-            ConnectorAction action = connector.getAction(node.getMethod());
+            ConnectorAction action = connector.getOperation(node.getMethod());
             if (action != null && action.getOutputSchema() != null) {
                 org.eclipse.lemminx.customservice.synapse.mediator.tryout.pojo.Property property =
                         action.getOutputSchema();
@@ -595,7 +595,7 @@ public class MediatorSchemaVisitor extends AbstractMediatorVisitor {
         org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector connector =
                 ConnectorHolder.getInstance().getConnector(node.getConnectorName());
         if (connector != null) {
-            ConnectorAction action = connector.getAction(node.getMethod());
+            ConnectorAction action = connector.getOperation(node.getMethod());
             if (action != null) {
                 info.addOutputVariable(targetVariable, StringUtils.EMPTY);
             }

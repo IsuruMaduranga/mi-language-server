@@ -19,6 +19,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectionInfo;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorAction;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.OperationParameter;
@@ -77,20 +78,25 @@ public class ConnectorReader {
                         String displayName = Utils.getInlineString(displayNameElement.getFirstChild());
                         connector.setDisplayName(displayName);
                     }
-                    connector.setExtractedConnectorPath(connectorPath);
-                    setConnectorArtifactIdAndVersion(connector, connectorPath);
-                    connector.setIconPath(connectorPath + File.separator + "icon");
-                    connector.setUiSchemaPath(connectorPath + File.separator + "uischema");
-                    connector.setOutputSchemaPath(connectorPath + File.separator + "outputschema");
+                    String absoluteConnectorPath = toAbsolute(connectorPath);
+                    connector.setExtractedConnectorPath(absoluteConnectorPath);
+                    setConnectorArtifactIdAndVersion(connector, absoluteConnectorPath);
+                    connector.setUiSchemaPath(Paths.get(absoluteConnectorPath, "uischema").toString());
+                    connector.setOutputSchemaPath(Paths.get(absoluteConnectorPath, "outputschema").toString());
                     populateAllowedConnectionTypesMap(connector);
                     populateConnectorActions(connector, componentElement);
-                    populateConnectionUiSchema(connector);
+                    populateConnections(connector);
                 } catch (Exception e) {
                     log.log(Level.SEVERE, "Error reading connector file", e);
                 }
             }
         }
         return connector;
+    }
+
+    private static String toAbsolute(String path) {
+
+        return Paths.get(path).toAbsolutePath().normalize().toString();
     }
 
     private String getBallerinaModulePath(String moduleName, String ballerinaFolder) {
@@ -108,7 +114,7 @@ public class ConnectorReader {
             for (String path : ballerinaTomlPaths) {
                 try {
                     if (moduleName.equals(readBallerinaToml(path))) {
-                        return Paths.get(path).getParent().toString();
+                        return Paths.get(path).toAbsolutePath().normalize().getParent().toString();
                     }
                 } catch (IOException e) {
                     log.log(Level.SEVERE, "Error occurred while reading Ballerina.toml file.", e);
@@ -256,7 +262,7 @@ public class ConnectorReader {
 
     private void generateUISchemasIfNeeded(Connector connector) {
 
-        for (ConnectorAction action : connector.getActions()) {
+        for (ConnectorAction action : connector.getOperations()) {
             if (action.getUiSchemaPath() == null && !action.getHidden()) {
                 try {
                     generateUISchema(action, connector);
@@ -297,7 +303,7 @@ public class ConnectorReader {
 
         try {
             String fileName = Utils.getFileName(file);
-            if (connector.getAction(fileName) != null) {
+            if (connector.getOperation(fileName) != null) {
                 connector.addOperationUiSchema(fileName, file.getAbsolutePath());
             } else {
                 JsonElement operation = getOperationNameFromUISchema(file);
@@ -323,7 +329,7 @@ public class ConnectorReader {
      */
     private void updateRequiredFlags(Connector connector) {
 
-        for (ConnectorAction action : connector.getActions()) {
+        for (ConnectorAction action : connector.getOperations()) {
             String uiSchemaPath = action.getUiSchemaPath();
             if (StringUtils.isEmpty(uiSchemaPath)) {
                 continue;
@@ -360,6 +366,12 @@ public class ConnectorReader {
                                 if (value.has(Constant.INPUT_TYPE)) {
                                     String inputType = value.get(Constant.INPUT_TYPE).getAsString();
                                     param.setXsdType(mapInputTypeToXsd(inputType));
+                                }
+                                if (value.has(Constant.DEFAULT_VALUE)) {
+                                    JsonElement def = value.get(Constant.DEFAULT_VALUE);
+                                    if (def.isJsonPrimitive()) {
+                                        param.setDefaultValue(def.getAsString());
+                                    }
                                 }
                                 break;
                             }
@@ -407,38 +419,59 @@ public class ConnectorReader {
         }
     }
 
-    private void populateConnectionUiSchema(Connector connector) {
+    /**
+     * Walks every uischema JSON in the connector's {@code uischema} folder, and
+     * for each file that declares a top-level {@code connectionName}, builds a
+     * {@link ConnectionInfo} with its parameters flattened from the uischema's
+     * {@code elements} tree.
+     */
+    private void populateConnections(Connector connector) {
 
         File uiSchemaFolder = new File(connector.getUiSchemaPath());
-        if (uiSchemaFolder.exists()) {
-            File[] files = uiSchemaFolder.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    String connectionName = getConnectionSchemaName(file);
-                    if (connectionName != null) {
-                        connector.addConnectionUiSchema(connectionName.toUpperCase(), file.getAbsolutePath());
-                    }
-                }
+        if (!uiSchemaFolder.exists()) {
+            return;
+        }
+        File[] files = uiSchemaFolder.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            ConnectionInfo connection = readConnectionInfo(file);
+            if (connection != null) {
+                connector.addConnection(connection);
             }
         }
     }
 
-    private String getConnectionSchemaName(File file) {
+    private ConnectionInfo readConnectionInfo(File file) {
 
-        String connectionName = null;
         try {
             String schema = Utils.readFile(file);
             JsonObject uiJson = Utils.getJsonObject(schema);
-            if (uiJson != null) {
-                JsonElement connectionNameEle = uiJson.get("connectionName");
-                if (connectionNameEle != null) {
-                    connectionName = connectionNameEle.getAsString();
-                }
+            if (uiJson == null) {
+                return null;
             }
+            JsonElement connectionNameEle = uiJson.get("connectionName");
+            if (connectionNameEle == null) {
+                return null;
+            }
+            ConnectionInfo connection = new ConnectionInfo();
+            connection.setName(connectionNameEle.getAsString().toUpperCase());
+            connection.setUiSchemaPath(file.getAbsoluteFile().toPath().normalize().toString());
+            if (uiJson.has(Constant.TITLE)) {
+                connection.setDisplayName(uiJson.get(Constant.TITLE).getAsString());
+            }
+            if (uiJson.has(Constant.HELP)) {
+                connection.setDescription(uiJson.get(Constant.HELP).getAsString());
+            }
+            if (uiJson.has(Constant.ELEMENTS) && uiJson.get(Constant.ELEMENTS).isJsonArray()) {
+                connection.setParameters(UiSchemaFlattener.flatten(uiJson.getAsJsonArray(Constant.ELEMENTS)));
+            }
+            return connection;
         } catch (IOException e) {
             log.log(Level.WARNING, "Error while reading connection ui schema file", e);
+            return null;
         }
-        return connectionName;
     }
 
     private List<String> getDependencies(DOMNode connectorElement) {
@@ -513,7 +546,7 @@ public class ConnectorReader {
                     if (allowedConnectionTypesMap.containsKey(action.getName())) {
                         action.setAllowedConnectionTypes(allowedConnectionTypesMap.get(action.getName()));
                     }
-                    connector.addAction(action);
+                    connector.addOperation(action);
                 }
             }
         } catch (IOException e) {

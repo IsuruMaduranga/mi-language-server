@@ -15,9 +15,7 @@
 package org.eclipse.lemminx.customservice.synapse.connectors.entity;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Connector {
 
@@ -28,9 +26,8 @@ public class Connector {
     private String packageName;
     private String artifactId;
     private String version;
-    private List<ConnectorAction> actions;
-    private Map<String, String> connectionUiSchema;
-    private String iconPath;
+    private List<ConnectorAction> operations;
+    private List<ConnectionInfo> connections;
     private String uiSchemaPath;
     private String outputSchemaPath;
     private String ballerinaModulePath;
@@ -38,8 +35,8 @@ public class Connector {
 
     public Connector() {
 
-        this.actions = new ArrayList<>();
-        this.connectionUiSchema = new HashMap<>();
+        this.operations = new ArrayList<>();
+        this.connections = new ArrayList<>();
     }
 
     public String getName() {
@@ -92,44 +89,63 @@ public class Connector {
         this.connectorZipPath = connectorZipPath;
     }
 
-    public void addAction(ConnectorAction action) {
+    public void addOperation(ConnectorAction operation) {
 
-        actions.add(action);
+        operations.add(operation);
     }
 
-    public List<ConnectorAction> getActions() {
+    public List<ConnectorAction> getOperations() {
 
-        return actions;
+        return operations;
     }
 
-    public ConnectorAction getAction(String actionName) {
+    public ConnectorAction getOperation(String operationName) {
 
-        for (ConnectorAction action : actions) {
-            if (action.getName().equals(actionName)) {
-                return action;
+        for (ConnectorAction operation : operations) {
+            if (operation.getName().equals(operationName)) {
+                return operation;
             }
         }
         return null;
     }
 
-    public void setActions(List<ConnectorAction> actions) {
+    public void setOperations(List<ConnectorAction> operations) {
 
-        this.actions = actions;
+        this.operations = operations;
     }
 
-    public void addConnectionUiSchema(String key, String value) {
+    public void addConnection(ConnectionInfo connection) {
 
-        connectionUiSchema.put(key, value);
+        connections.add(connection);
     }
 
-    public Map<String, String> getConnectionUiSchema() {
+    public List<ConnectionInfo> getConnections() {
 
-        return connectionUiSchema;
+        return connections;
     }
 
-    public void setConnectionUiSchema(Map<String, String> connectionUiSchema) {
+    public void setConnections(List<ConnectionInfo> connections) {
 
-        this.connectionUiSchema = connectionUiSchema;
+        this.connections = connections;
+    }
+
+    /**
+     * Looks up the uischema file path for the given connection type, normalised
+     * to uppercase to match {@link ConnectionInfo#getName()}. Returns null when
+     * no connection with that type exists.
+     */
+    public String getConnectionUiSchemaPath(String connectionType) {
+
+        if (connectionType == null || connections == null) {
+            return null;
+        }
+        String target = connectionType.toUpperCase();
+        for (ConnectionInfo connection : connections) {
+            if (target.equals(connection.getName())) {
+                return connection.getUiSchemaPath();
+            }
+        }
+        return null;
     }
 
     public String getArtifactId() {
@@ -150,16 +166,6 @@ public class Connector {
     public void setVersion(String version) {
 
         this.version = version;
-    }
-
-    public String getIconPath() {
-
-        return iconPath;
-    }
-
-    public void setIconPath(String iconPath) {
-
-        this.iconPath = iconPath;
     }
 
     public String getUiSchemaPath() {
@@ -187,7 +193,7 @@ public class Connector {
         if (operationName == null) {
             return;
         }
-        for (ConnectorAction action : actions) {
+        for (ConnectorAction action : operations) {
             if (action.getName().equals(operationName)) {
                 action.setUiSchemaPath(absolutePath);
             }
@@ -199,7 +205,7 @@ public class Connector {
         if (operationName == null) {
             return;
         }
-        for (ConnectorAction action : actions) {
+        for (ConnectorAction action : operations) {
             if (action.getName().equals(operationName)) {
                 action.setOutputSchemaPath(absolutePath);
             }

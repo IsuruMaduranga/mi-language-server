@@ -20,6 +20,11 @@ public class OperationParameter {
     private String description;
     private boolean required;
     private String xsdType = "xs:string";
+    /**
+     * Default value from the uischema. Only populated for connection parameters;
+     * null for operation parameters (where defaults aren't meaningful for XML child elements).
+     */
+    private String defaultValue;
 
     public OperationParameter(String name, String description) {
 
@@ -61,5 +66,15 @@ public class OperationParameter {
     public void setXsdType(String xsdType) {
 
         this.xsdType = xsdType;
+    }
+
+    public String getDefaultValue() {
+
+        return defaultValue;
+    }
+
+    public void setDefaultValue(String defaultValue) {
+
+        this.defaultValue = defaultValue;
     }
 }

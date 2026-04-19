@@ -58,10 +58,10 @@ public class ConnectorReaderTest {
         assertNotNull(connector);
         assertEquals("http", connector.getName());
         assertEquals("0.1.8", connector.getVersion());
-        assertEquals(8, connector.getActions().size());
+        assertEquals(8, connector.getOperations().size());
         assertEquals("HTTP", connector.getDisplayName());
-        assertEquals(2, connector.getConnectionUiSchema().size());
-        assertOperation(connector.getAction("get"));
+        assertEquals(2, connector.getConnections().size());
+        assertOperation(connector.getOperation("get"));
 
     }
 
