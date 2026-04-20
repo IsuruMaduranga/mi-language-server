@@ -74,16 +74,16 @@ public class ConnectorInfoEndpointTest {
     }
 
     @Test
-    public void testReadConnector_ActionsHaveParameters() {
+    public void testReadConnector_OperationsHaveParameters() {
         String connectorPath = tempPath.resolve("mi-connector-http-0.1.8").toString();
         ConnectorReader reader = new ConnectorReader();
         Connector connector = reader.readConnector(connectorPath, StringUtils.EMPTY);
 
-        ConnectorAction getAction = connector.getOperation("get");
-        assertNotNull(getAction, "GET action should exist");
-        assertEquals("http.get", getAction.getTag());
-        assertFalse(getAction.getParameters().isEmpty(), "Action should have parameters");
-        assertFalse(getAction.getAllowedConnectionTypes().isEmpty(), "Action should have connection types");
+        ConnectorAction getOperation = connector.getOperation("get");
+        assertNotNull(getOperation, "GET operation should exist");
+        assertEquals("http.get", getOperation.getTag());
+        assertFalse(getOperation.getParameters().isEmpty(), "Operation should have parameters");
+        assertFalse(getOperation.getAllowedConnectionTypes().isEmpty(), "Operation should have connection types");
     }
 
     @Test
@@ -140,18 +140,18 @@ public class ConnectorInfoEndpointTest {
     }
 
     @Test
-    public void testReadConnector_InboundZip_ReturnsEmptyActions() {
+    public void testReadConnector_InboundZip_ReturnsEmptyOperations() {
         // An inbound connector zip has a stub connector.xml with no subComponents.
-        // ConnectorReader will return a Connector with empty actions.
+        // ConnectorReader will return a Connector with empty operations.
         // This is why getConnectorInfo routes mi-inbound-* to the inbound path instead.
         String inboundPath = tempPath.resolve("mi-inbound-amazonsqs-2.0.2").toString();
         ConnectorReader reader = new ConnectorReader();
         Connector connector = reader.readConnector(inboundPath, StringUtils.EMPTY);
 
-        // May return a connector but with no useful actions
+        // May return a connector but with no useful operations
         if (connector != null) {
             assertTrue(connector.getOperations().isEmpty(),
-                    "Inbound connector should have no actions when read by ConnectorReader");
+                    "Inbound connector should have no operations when read by ConnectorReader");
         }
     }
 
@@ -161,11 +161,11 @@ public class ConnectorInfoEndpointTest {
         ConnectorReader reader = new ConnectorReader();
         Connector connector = reader.readConnector(connectorPath, StringUtils.EMPTY);
 
-        ConnectorAction getAction = connector.getOperation("get");
-        assertNotNull(getAction);
+        ConnectorAction getOperation = connector.getOperation("get");
+        assertNotNull(getOperation);
 
         // Verify parameter xsdType mappings exist
-        for (OperationParameter param : getAction.getParameters()) {
+        for (OperationParameter param : getOperation.getParameters()) {
             assertNotNull(param.getName(), "Parameter name should not be null");
             assertNotNull(param.getXsdType(), "Parameter xsdType should not be null");
             assertTrue(
