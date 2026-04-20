@@ -1388,14 +1388,19 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             // These live under ~/.wso2-mi/integration-project-dependencies/<name>_<hash>/Extracted/
             // and are populated by SynapseLanguageService at init, but this participant uses a
             // throwaway finder, so we need to load them here too.
-            try {
-                resourceFinder.loadDependentResources(projectPath);
-                collectResourceNames(resourceFinder.getDependentResourcesMap(),
-                        artifactNames, templatePaths, nameToFiles);
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING,
-                        "Failed to load dependent project resources; cross-project references may be flagged",
-                        e);
+            // Guard the call: loadDependentResources logs a WARNING when the dependency directory
+            // is missing, which is the common case for projects without dependent integrations.
+            // The outer cache already prevents re-scanning on every keystroke.
+            if (hasDependentProjectResources(projectPath)) {
+                try {
+                    resourceFinder.loadDependentResources(projectPath);
+                    collectResourceNames(resourceFinder.getDependentResourcesMap(),
+                            artifactNames, templatePaths, nameToFiles);
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING,
+                            "Failed to load dependent project resources; cross-project references may be flagged",
+                            e);
+                }
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to build artifact name index for cross-reference validation", e);
@@ -1419,6 +1424,27 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         this.cyclicArtifacts = cycles;
         artifactIndexCache.put(projectPath, new CachedArtifactIndex(artifactNames, System.currentTimeMillis()));
         return artifactNames;
+    }
+
+    /**
+     * Returns {@code true} if the project has an Extracted dependency directory
+     * under {@code ~/.wso2-mi/integration-project-dependencies/<name>_<hash>/Extracted/}.
+     * Used to avoid calling {@code loadDependentResources} (and the WARNING log it
+     * emits) for projects without dependent integration projects.
+     */
+    private static boolean hasDependentProjectResources(String projectPath) {
+        Path projectDir = Paths.get(projectPath);
+        Path fileName = projectDir.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        Path extractedDir = Paths.get(
+                System.getProperty(Constant.USER_HOME),
+                Constant.WSO2_MI,
+                Constant.INTEGRATION_PROJECT_DEPENDENCIES,
+                fileName.toString() + Constant.UNDERSCORE + Utils.getHash(projectPath),
+                Constant.EXTRACTED);
+        return extractedDir.toFile().isDirectory();
     }
 
     /**
