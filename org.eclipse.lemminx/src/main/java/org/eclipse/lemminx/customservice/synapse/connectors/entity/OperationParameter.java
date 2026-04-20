@@ -21,8 +21,9 @@ public class OperationParameter {
     private boolean required;
     private String xsdType = "xs:string";
     /**
-     * Default value from the uischema. Only populated for connection parameters;
-     * null for operation parameters (where defaults aren't meaningful for XML child elements).
+     * Default value from the connector/UI schema, when one is defined.
+     * May be populated for both connection parameters and operation parameters;
+     * otherwise {@code null}.
      */
     private String defaultValue;
 
