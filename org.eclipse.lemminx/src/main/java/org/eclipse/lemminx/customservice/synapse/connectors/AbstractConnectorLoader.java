@@ -17,10 +17,12 @@ package org.eclipse.lemminx.customservice.synapse.connectors;
 import org.eclipse.lemminx.customservice.SynapseLanguageClientAPI;
 import org.eclipse.lemminx.customservice.synapse.ConnectorStatusNotification;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorDetails;
 import org.eclipse.lemminx.customservice.synapse.inbound.conector.InboundConnectorHolder;
 import org.eclipse.lemminx.customservice.synapse.InvalidConfigurationException;
 import org.eclipse.lemminx.customservice.synapse.utils.Constant;
 import org.eclipse.lemminx.customservice.synapse.utils.Utils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,6 +33,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
 
 import static org.eclipse.lemminx.customservice.synapse.utils.Constant.INBOUND_CONNECTOR_PREFIX;
 
@@ -78,6 +81,33 @@ public abstract class AbstractConnectorLoader {
             copyToProjectIfNeeded(connectorZips);
             extractZips(connectorZips, connectorExtractFolder);
             readConnectors(connectorExtractFolder);
+        }
+    }
+
+    public ConnectorDetails isDuplicateConnector(String connectorPath) {
+
+        try (ZipFile zipFile = new ZipFile(connectorPath)) {
+            String connectorName = connectorReader.getConnectorName(zipFile);
+            ConnectorDetails details = new ConnectorDetails();
+            if (StringUtils.isNotBlank(connectorName) && connectorHolder.exists(connectorName)) {
+                Connector existingConnector = connectorHolder.getConnector(connectorName);
+                details.connectorName = connectorName;
+                if (existingConnector.isFromProject()) {
+                    details.isFromProject = true;
+                    if (StringUtils.isNotBlank(existingConnector.getConnectorZipPath())) {
+                        details.connectorPath = existingConnector.getConnectorZipPath();
+                    } else {
+                        details.artifactId = existingConnector.getArtifactId();
+                        details.version = existingConnector.getVersion();
+                    }
+                } else {
+                    details.isFromProject = false;
+                }
+            }
+            return details;
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Error while checking duplicate connector for path: " + connectorPath, e);
+            return null;
         }
     }
 
