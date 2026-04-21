@@ -29,9 +29,13 @@ import org.eclipse.lemminx.dom.DOMNode;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -562,13 +566,34 @@ public class ConnectorReader {
         if (connectorFile.exists()) {
             try {
                 DOMDocument connectorDocument = Utils.getDOMDocument(connectorFile);
-                DOMNode connectorElement = Utils.getChildNodeByName(connectorDocument, "connector");
-                DOMNode componentElement = Utils.getChildNodeByName(connectorElement, "component");
-                connectorName = componentElement.getAttribute(Constant.NAME);
+                connectorName = extractConnectorName(connectorDocument);
             } catch (Exception e) {
                 log.log(Level.WARNING, "Error reading connector file", e);
             }
         }
         return connectorName;
+    }
+
+    public String getConnectorName(ZipFile zipFile) {
+
+        String connectorName = null;
+        ZipEntry entry = zipFile.getEntry("connector.xml");
+        if (entry != null) {
+            try (InputStream is = zipFile.getInputStream(entry)) {
+                String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                DOMDocument connectorDocument = Utils.getDOMDocument(content);
+                connectorName = extractConnectorName(connectorDocument);
+            } catch (Exception e) {
+                log.log(Level.WARNING, "Error reading connector.xml from zip", e);
+            }
+        }
+        return connectorName;
+    }
+
+    private String extractConnectorName(DOMDocument connectorDocument) {
+
+        DOMNode connectorElement = Utils.getChildNodeByName(connectorDocument, "connector");
+        DOMNode componentElement = Utils.getChildNodeByName(connectorElement, "component");
+        return componentElement.getAttribute(Constant.NAME);
     }
 }

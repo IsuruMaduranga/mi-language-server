@@ -33,6 +33,7 @@ import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connections;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorParam;
 import org.eclipse.lemminx.customservice.synapse.connectors.ConnectionFinder;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorDetails;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorResponse;
 import org.eclipse.lemminx.customservice.synapse.connectors.generate.ConnectorGenerateRequest;
 import org.eclipse.lemminx.customservice.synapse.connectors.generate.ConnectorGeneratorResponse;
@@ -919,6 +920,12 @@ public class SynapseLanguageService implements ISynapseLanguageService {
         return CompletableFuture.supplyAsync(
                 () -> aiConnectorHandler.fetchMcpTools(param.documentUri, param.range, connections.getConnections(),
                         param.connectionName));
+    }
+
+    @Override
+    public CompletableFuture<ConnectorDetails> isDuplicateConnector(ConnectorDetails connectorDetails) {
+
+        return CompletableFuture.supplyAsync(() -> connectorLoader.isDuplicateConnector(connectorDetails.connectorPath));
     }
 
     public String getProjectUri() {
