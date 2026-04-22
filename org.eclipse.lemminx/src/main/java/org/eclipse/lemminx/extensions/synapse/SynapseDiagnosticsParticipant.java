@@ -1370,6 +1370,11 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         // Check cache first
         CachedArtifactIndex cached = artifactIndexCache.get(projectPath);
         if (cached != null && (System.currentTimeMillis() - cached.timestamp) < ARTIFACT_CACHE_TTL_MS) {
+            // Restore all derived state so cross-reference checks see the same
+            // template paths, duplicates, and cycles as a fresh build would.
+            this.templateFilePaths = cached.templateFilePaths;
+            this.duplicateArtifactNames = cached.duplicateArtifactNames;
+            this.cyclicArtifacts = cached.cyclicArtifacts;
             return cached.artifactNames;
         }
 
@@ -1422,7 +1427,8 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         this.templateFilePaths = templatePaths;
         this.duplicateArtifactNames = duplicates;
         this.cyclicArtifacts = cycles;
-        artifactIndexCache.put(projectPath, new CachedArtifactIndex(artifactNames, System.currentTimeMillis()));
+        artifactIndexCache.put(projectPath, new CachedArtifactIndex(
+                artifactNames, templatePaths, duplicates, cycles, System.currentTimeMillis()));
         return artifactNames;
     }
 
@@ -2237,14 +2243,26 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Simple cache entry for the artifact name index.
+     * Cache entry for the artifact name index. Stores every piece of derived state
+     * that {@link #buildArtifactNameIndex} writes to instance fields, so cache hits
+     * restore the full picture instead of leaving stale data from a prior project.
      */
     private static class CachedArtifactIndex {
         final Set<String> artifactNames;
+        final Map<String, String> templateFilePaths;
+        final Set<String> duplicateArtifactNames;
+        final Set<String> cyclicArtifacts;
         final long timestamp;
 
-        CachedArtifactIndex(Set<String> artifactNames, long timestamp) {
+        CachedArtifactIndex(Set<String> artifactNames,
+                            Map<String, String> templateFilePaths,
+                            Set<String> duplicateArtifactNames,
+                            Set<String> cyclicArtifacts,
+                            long timestamp) {
             this.artifactNames = artifactNames;
+            this.templateFilePaths = templateFilePaths;
+            this.duplicateArtifactNames = duplicateArtifactNames;
+            this.cyclicArtifacts = cyclicArtifacts;
             this.timestamp = timestamp;
         }
     }

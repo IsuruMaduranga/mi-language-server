@@ -44,6 +44,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 public class ConnectorReader {
 
@@ -107,9 +108,9 @@ public class ConnectorReader {
             return StringUtils.EMPTY;
         }
         List<String> ballerinaTomlPaths = new ArrayList<>();
-        try {
-            Files.walk(ballerinaPath)
-                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().equals("Ballerina.toml"))
+        try (Stream<Path> stream = Files.walk(ballerinaPath)) {
+            stream.filter(path -> Files.isRegularFile(path)
+                            && path.getFileName().toString().equals("Ballerina.toml"))
                     .forEach(path -> ballerinaTomlPaths.add(path.toString()));
             for (String path : ballerinaTomlPaths) {
                 try {
@@ -345,41 +346,65 @@ public class ConnectorReader {
                     continue;
                 }
                 JsonArray elements = uiJson.getAsJsonArray(Constant.ELEMENTS);
-                for (JsonElement elem : elements) {
-                    JsonObject element = elem.getAsJsonObject();
-                    if (!element.has(Constant.TYPE) || !Constant.ATTRIBUTE.equals(
-                            element.get(Constant.TYPE).getAsString())) {
+                List<JsonObject> attributeValues = new ArrayList<>();
+                collectAttributeValues(elements, attributeValues);
+                for (JsonObject value : attributeValues) {
+                    if (!value.has(Constant.NAME)) {
                         continue;
                     }
-                    if (!element.has(Constant.VALUE)) {
-                        continue;
-                    }
-                    JsonObject value = element.getAsJsonObject(Constant.VALUE);
-                    if (value.has(Constant.NAME)) {
-                        String paramName = value.get(Constant.NAME).getAsString();
-                        for (OperationParameter param : action.getParameters()) {
-                            if (paramName.equals(param.getName())) {
-                                if (value.has(Constant.REQUIRED) &&
-                                        value.get(Constant.REQUIRED).getAsBoolean()) {
-                                    param.setRequired(true);
-                                }
-                                if (value.has(Constant.INPUT_TYPE)) {
-                                    String inputType = value.get(Constant.INPUT_TYPE).getAsString();
-                                    param.setXsdType(mapInputTypeToXsd(inputType));
-                                }
-                                if (value.has(Constant.DEFAULT_VALUE)) {
-                                    JsonElement def = value.get(Constant.DEFAULT_VALUE);
-                                    if (def.isJsonPrimitive()) {
-                                        param.setDefaultValue(def.getAsString());
-                                    }
-                                }
-                                break;
+                    String paramName = value.get(Constant.NAME).getAsString();
+                    for (OperationParameter param : action.getParameters()) {
+                        if (paramName.equals(param.getName())) {
+                            if (value.has(Constant.REQUIRED) &&
+                                    value.get(Constant.REQUIRED).getAsBoolean()) {
+                                param.setRequired(true);
                             }
+                            if (value.has(Constant.INPUT_TYPE)) {
+                                String inputType = value.get(Constant.INPUT_TYPE).getAsString();
+                                param.setXsdType(mapInputTypeToXsd(inputType));
+                            }
+                            if (value.has(Constant.DEFAULT_VALUE)) {
+                                JsonElement def = value.get(Constant.DEFAULT_VALUE);
+                                if (def.isJsonPrimitive()) {
+                                    param.setDefaultValue(def.getAsString());
+                                }
+                            }
+                            break;
                         }
                     }
                 }
             } catch (Exception e) {
                 log.log(Level.WARNING, "Error reading UI schema for required flags: " + action.getName(), e);
+            }
+        }
+    }
+
+    /**
+     * Recursively flattens a uischema {@code elements} array into the {@code value}
+     * object of every {@code attribute} entry, descending into {@code attributeGroup}
+     * containers so nested attributes are visited.
+     */
+    private static void collectAttributeValues(JsonArray elements, List<JsonObject> out) {
+        if (elements == null) {
+            return;
+        }
+        for (JsonElement raw : elements) {
+            if (!raw.isJsonObject()) {
+                continue;
+            }
+            JsonObject element = raw.getAsJsonObject();
+            if (!element.has(Constant.TYPE) || !element.has(Constant.VALUE)
+                    || !element.get(Constant.VALUE).isJsonObject()) {
+                continue;
+            }
+            String type = element.get(Constant.TYPE).getAsString();
+            JsonObject value = element.getAsJsonObject(Constant.VALUE);
+            if (Constant.ATTRIBUTE_GROUP.equals(type)) {
+                if (value.has(Constant.ELEMENTS) && value.get(Constant.ELEMENTS).isJsonArray()) {
+                    collectAttributeValues(value.getAsJsonArray(Constant.ELEMENTS), out);
+                }
+            } else if (Constant.ATTRIBUTE.equals(type)) {
+                out.add(value);
             }
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com).
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -148,11 +148,10 @@ public class ConnectorInfoEndpointTest {
         ConnectorReader reader = new ConnectorReader();
         Connector connector = reader.readConnector(inboundPath, StringUtils.EMPTY);
 
-        // May return a connector but with no useful operations
-        if (connector != null) {
-            assertTrue(connector.getOperations().isEmpty(),
-                    "Inbound connector should have no operations when read by ConnectorReader");
-        }
+        assertNotNull(connector,
+                "ConnectorReader should return a non-null Connector for the inbound fixture");
+        assertTrue(connector.getOperations().isEmpty(),
+                "Inbound connector should have no operations when read by ConnectorReader");
     }
 
     @Test

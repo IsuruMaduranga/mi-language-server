@@ -85,6 +85,7 @@ import org.eclipse.lemminx.customservice.synapse.mediatorService.pojo.MCPToolRes
 import org.eclipse.lemminx.customservice.synapse.parser.ConfigDetails;
 import org.eclipse.lemminx.customservice.synapse.parser.Constants;
 import org.eclipse.lemminx.customservice.synapse.parser.DependencyStatusResponse;
+import org.eclipse.lemminx.customservice.synapse.parser.DependencyDetails;
 import org.eclipse.lemminx.customservice.synapse.parser.DeployPluginDetails;
 import org.eclipse.lemminx.customservice.synapse.parser.DependencyDownloadManager;
 import org.eclipse.lemminx.customservice.synapse.parser.OverviewPage;
@@ -488,9 +489,14 @@ public class SynapseLanguageService implements ISynapseLanguageService {
             throws IOException {
 
         String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
+        // Include groupId in the cache name so different groupIds with the same
+        // artifactId+version don't collide on disk.
+        String artifactCacheName = groupId + "_" + artifactId + "-" + version;
         File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
                 Constant.CONNECTORS, projectId).toFile();
-        File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
+        // Per-cache subdirectory keeps Utils.downloadConnector's filename layout
+        // (artifactId-version.zip) intact while isolating each groupId.
+        File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED, artifactCacheName).toFile();
         File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
         downloadDir.mkdirs();
         extractDir.mkdirs();
@@ -507,11 +513,15 @@ public class SynapseLanguageService implements ISynapseLanguageService {
                     Utils.downloadConnector(groupId, artifactId, version, downloadDir,
                             Constant.ZIP_EXTENSION_NO_DOT, projectUri);
                 } catch (FileNotFoundException notFound) {
-                    // HttpURLConnection throws FileNotFoundException on HTTP 404 —
-                    // i.e., the Maven repo has no artifact with these coordinates.
+                    // 404 from the Maven repo — coordinates don't resolve to an artifact.
                     throw new IllegalStateException("Artifact not found on WSO2 Nexus: "
                             + groupId + ":" + artifactId + ":" + version
                             + ". Verify the groupId, artifactId, and version are correct.");
+                } catch (IOException ioe) {
+                    // Non-404 HTTP error or local IO failure — surface a clean message
+                    // instead of letting the raw IOException propagate to a generic catch.
+                    throw new IllegalStateException("Failed to download artifact "
+                            + groupId + ":" + artifactId + ":" + version + ": " + ioe.getMessage(), ioe);
                 }
             }
         }
@@ -520,7 +530,7 @@ public class SynapseLanguageService implements ISynapseLanguageService {
                     + groupId + ":" + artifactId + ":" + version);
         }
 
-        File extractedFolder = new File(extractDir, artifactId + "-" + version);
+        File extractedFolder = new File(extractDir, artifactCacheName);
         if (!extractedFolder.exists()) {
             Utils.extractZip(zipFile, extractedFolder);
         }
@@ -1016,6 +1026,80 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     public CompletableFuture<ConnectorDetails> isDuplicateConnector(ConnectorDetails connectorDetails) {
 
         return CompletableFuture.supplyAsync(() -> connectorLoader.isDuplicateConnector(connectorDetails.connectorPath));
+    }
+
+    @Override
+    public CompletableFuture<Either<ConnectorResponse, String>> resolveConnector(UpdateDependencyRequest request) {
+
+        return CompletableFuture.supplyAsync(() -> {
+            if (request.dependencies == null || request.dependencies.isEmpty()) {
+                return Either.forRight("At least one dependency is required");
+            }
+            if (StringUtils.isBlank(projectUri)) {
+                return Either.forRight("Project is not initialized");
+            }
+
+            String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
+            File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
+                    Constant.CONNECTORS, projectId).toFile();
+            File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
+            File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
+            downloadDir.mkdirs();
+            extractDir.mkdirs();
+
+            List<Connector> resolvedConnectors = new ArrayList<>();
+            List<String> errors = new ArrayList<>();
+
+            for (DependencyDetails dep : request.dependencies) {
+                if (StringUtils.isAnyBlank(dep.getGroupId(), dep.getArtifact(), dep.getVersion())) {
+                    errors.add("Skipping dependency with missing groupId, artifact, or version");
+                    continue;
+                }
+
+                try {
+                    File zipFile = new File(downloadDir,
+                            dep.getArtifact() + "-" + dep.getVersion() + Constant.ZIP_EXTENSION);
+                    if (!zipFile.exists()) {
+                        File localCopy = Utils.getDependencyFromLocalRepo(dep.getGroupId(),
+                                dep.getArtifact(), dep.getVersion(), dep.getType());
+                        if (localCopy != null) {
+                            Utils.copyFile(localCopy.getPath(), downloadDir.getPath());
+                        } else {
+                            Utils.downloadConnector(dep.getGroupId(), dep.getArtifact(), dep.getVersion(),
+                                    downloadDir, Constant.ZIP_EXTENSION_NO_DOT, projectUri);
+                        }
+                    }
+
+                    if (!zipFile.exists()) {
+                        errors.add("Failed to download connector: " + dep.getArtifact());
+                        continue;
+                    }
+
+                    File connectorExtractDir = new File(extractDir,
+                            dep.getArtifact() + "-" + dep.getVersion());
+                    if (!connectorExtractDir.exists()) {
+                        Utils.extractZip(zipFile, connectorExtractDir);
+                    }
+
+                    ConnectorReader connectorReader = new ConnectorReader();
+                    Connector connector = connectorReader.readConnector(
+                            connectorExtractDir.getAbsolutePath(), projectUri);
+                    if (connector != null) {
+                        resolvedConnectors.add(connector);
+                    } else {
+                        errors.add("Failed to read connector metadata: " + dep.getArtifact());
+                    }
+                } catch (IOException e) {
+                    log.log(Level.WARNING, "Error resolving connector: " + dep.getArtifact(), e);
+                    errors.add("Error resolving " + dep.getArtifact() + ": " + e.getMessage());
+                }
+            }
+
+            if (resolvedConnectors.isEmpty() && !errors.isEmpty()) {
+                return Either.forRight(String.join("; ", errors));
+            }
+            return Either.forLeft(new ConnectorResponse(resolvedConnectors));
+        });
     }
 
     public String getProjectUri() {

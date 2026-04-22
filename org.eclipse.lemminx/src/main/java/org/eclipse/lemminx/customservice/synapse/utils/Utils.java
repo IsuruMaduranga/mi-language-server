@@ -1487,8 +1487,8 @@ public class Utils {
     public static void downloadConnector(String groupId, String artifactId, String version, File targetDirectory,
             String fileType, String projectPath) throws IOException {
 
-        if (!targetDirectory.exists()) {
-            targetDirectory.mkdirs();
+        if (!targetDirectory.exists() && !targetDirectory.mkdirs() && !targetDirectory.isDirectory()) {
+            throw new IOException("Failed to create download directory: " + targetDirectory.getAbsolutePath());
         }
 
         boolean useLocalMaven = false;
@@ -1534,6 +1534,21 @@ public class Utils {
             connection.setConnectTimeout(20_000);
             connection.setReadTimeout(40_000);
 
+            // Inspect the HTTP status before opening streams so we can give callers
+            // a precise FileNotFoundException for 404 (artifact missing) and a
+            // distinct IOException for other HTTP failures — separate from any
+            // local FileOutputStream errors raised in the try-with-resources below.
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                logger.log(Level.INFO, "Artifact not found on remote repository: " + artifactId + "-" + version + "."
+                        + effectiveFileType + " (" + urlString + ")");
+                throw new FileNotFoundException("Artifact not found at " + urlString);
+            }
+            if (responseCode >= 400) {
+                throw new IOException("Failed to download " + urlString + ": HTTP " + responseCode + " "
+                        + connection.getResponseMessage());
+            }
+
             try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
                  FileOutputStream fileOutputStream = new FileOutputStream(targetFile)) {
                 byte[] dataBuffer = new byte[1024];
@@ -1543,11 +1558,6 @@ public class Utils {
                 }
             }
         } catch (FileNotFoundException notFound) {
-            // HttpURLConnection throws FileNotFoundException on HTTP 404 — the artifact
-            // simply isn't published at these coordinates. Callers (e.g. getConnectorInfo)
-            // convert this into a clean user-facing error, so avoid logging at SEVERE.
-            logger.log(Level.INFO, "Artifact not found on remote repository: " + artifactId + "-" + version + "."
-                    + effectiveFileType + " (" + urlString + ")");
             throw notFound;
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Error occurred while downloading dependency: " + artifactId + "-" + version + "."
