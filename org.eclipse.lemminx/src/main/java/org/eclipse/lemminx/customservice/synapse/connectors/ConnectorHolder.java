@@ -89,7 +89,7 @@ public class ConnectorHolder {
         if (connector == null) {
             return null;
         }
-        return connector.getOperation(actionName);
+        return connector.getAction(actionName);
     }
 
     private boolean isConnectorMatched(String name, Connector connector) {
@@ -103,7 +103,7 @@ public class ConnectorHolder {
         String connectorName = name.split("\\.")[0];
         for (Connector connector : connectors) {
             if (connector.getName().equalsIgnoreCase(connectorName)) {
-                for (ConnectorAction action : connector.getOperations()) {
+                for (ConnectorAction action : connector.getActions()) {
                     String tag = action.getTag();
                     if (tag != null && tag.equalsIgnoreCase(name)) {
                         return Boolean.TRUE;

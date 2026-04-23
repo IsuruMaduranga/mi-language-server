@@ -34,6 +34,8 @@ import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorPara
 import org.eclipse.lemminx.customservice.synapse.connectors.ConnectionFinder;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorDetails;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorInfoDto;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorInfoResponse;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorResponse;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorInfoRequest;
 import org.eclipse.lemminx.customservice.synapse.connectors.generate.ConnectorGenerateRequest;
@@ -376,7 +378,7 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     }
 
     @Override
-    public CompletableFuture<Either<Connector, String>> getConnectorInfo(ConnectorInfoRequest request) {
+    public CompletableFuture<Either<ConnectorInfoDto, String>> getConnectorInfo(ConnectorInfoRequest request) {
 
         return CompletableFuture.supplyAsync(() -> {
             if (StringUtils.isAnyBlank(request.groupId, request.artifactId, request.version)) {
@@ -414,7 +416,7 @@ public class SynapseLanguageService implements ISynapseLanguageService {
             }
             connector.setConnectorZipPath(zipFile.getAbsolutePath());
             connectorHolder.addConnector(connector);
-            return Either.forLeft(connector);
+            return Either.forLeft(ConnectorInfoDto.from(connector));
         });
     }
 
@@ -489,14 +491,9 @@ public class SynapseLanguageService implements ISynapseLanguageService {
             throws IOException {
 
         String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
-        // Include groupId in the cache name so different groupIds with the same
-        // artifactId+version don't collide on disk.
-        String artifactCacheName = groupId + "_" + artifactId + "-" + version;
         File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
                 Constant.CONNECTORS, projectId).toFile();
-        // Per-cache subdirectory keeps Utils.downloadConnector's filename layout
-        // (artifactId-version.zip) intact while isolating each groupId.
-        File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED, artifactCacheName).toFile();
+        File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
         File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
         downloadDir.mkdirs();
         extractDir.mkdirs();
@@ -530,7 +527,7 @@ public class SynapseLanguageService implements ISynapseLanguageService {
                     + groupId + ":" + artifactId + ":" + version);
         }
 
-        File extractedFolder = new File(extractDir, artifactCacheName);
+        File extractedFolder = new File(extractDir, artifactId + "-" + version);
         if (!extractedFolder.exists()) {
             Utils.extractZip(zipFile, extractedFolder);
         }
@@ -1029,7 +1026,7 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     }
 
     @Override
-    public CompletableFuture<Either<ConnectorResponse, String>> resolveConnector(UpdateDependencyRequest request) {
+    public CompletableFuture<Either<ConnectorInfoResponse, String>> resolveConnector(UpdateDependencyRequest request) {
 
         return CompletableFuture.supplyAsync(() -> {
             if (request.dependencies == null || request.dependencies.isEmpty()) {
@@ -1098,7 +1095,11 @@ public class SynapseLanguageService implements ISynapseLanguageService {
             if (resolvedConnectors.isEmpty() && !errors.isEmpty()) {
                 return Either.forRight(String.join("; ", errors));
             }
-            return Either.forLeft(new ConnectorResponse(resolvedConnectors));
+            List<ConnectorInfoDto> dtos = new ArrayList<>(resolvedConnectors.size());
+            for (Connector c : resolvedConnectors) {
+                dtos.add(ConnectorInfoDto.from(c));
+            }
+            return Either.forLeft(new ConnectorInfoResponse(dtos));
         });
     }
 

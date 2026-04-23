@@ -339,7 +339,7 @@ public class MediatorHandler {
         }
         org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector connectorMetadata =
                 connectorHolder.getConnector(connectorName);
-        return connectorMetadata.getOperation(operation);
+        return connectorMetadata.getAction(operation);
     }
 
     private SynapseConfigResponse generateMediatorSynapseConfig(STNode node, String mediator, Map<String, Object> data,
@@ -652,7 +652,7 @@ public class MediatorHandler {
         if (connectorHolder.exists(connectorName)) {
             org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector
                     connector = connectorHolder.getConnector(connectorName);
-            ConnectorAction operation = connector.getOperation(operationName);
+            ConnectorAction operation = connector.getAction(operationName);
             if (operation != null) {
                 String uiSchemaPath = operation.getUiSchemaPath();
                 try {

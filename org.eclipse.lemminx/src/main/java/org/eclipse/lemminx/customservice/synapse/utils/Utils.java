@@ -949,7 +949,7 @@ public class Utils {
         for (Connector connector : connectors) {
             JsonArray operationsArray = new JsonArray();
             JsonObject categoriesObject = new JsonObject(); // Categories object to store operations under categories
-            List<ConnectorAction> operations = connector.getOperations();
+            List<ConnectorAction> operations = connector.getActions();
             for (ConnectorAction operation : operations) {
                 if (!operation.getHidden() && !(forAgentTool && !operation.isCanActAsAgentTool())) {
                     JsonObject operationObject = new JsonObject();
@@ -959,11 +959,7 @@ public class Utils {
                     operationObject.addProperty(Constant.OPERATION_NAME, operation.getName());
                     operationObject.addProperty(Constant.TAG, operation.getTag());
                     operationObject.addProperty(Constant.TOOLTIP, operation.getDescription());
-                    String extracted = connector.getExtractedConnectorPath();
-                    if (extracted != null) {
-                        operationObject.addProperty(Constant.ICON_PATH,
-                                Paths.get(extracted, "icon").toString());
-                    }
+                    operationObject.addProperty(Constant.ICON_PATH, connector.getIconPath());
                     if (StringUtils.isNotEmpty(operation.getGroupName())) {
                         if (categoriesObject.has(operation.getGroupName())) {
                             categoriesObject.getAsJsonArray(operation.getGroupName()).add(operationObject);

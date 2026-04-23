@@ -89,7 +89,7 @@ public class SchemaGenerate {
         List<Connector> connectors = holder.getConnectors();
         StringBuilder sb = new StringBuilder();
         for (Connector conn : connectors) {
-            List<ConnectorAction> actions = conn.getOperations();
+            List<ConnectorAction> actions = conn.getActions();
             for (ConnectorAction action : actions) {
                 if (action.getTag().startsWith("ai.")) {
                     // Skip AI connector operations as it has a separate schema

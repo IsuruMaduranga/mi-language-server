@@ -28,6 +28,7 @@ import org.eclipse.lemminx.dom.DOMElement;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public class ConnectionHandler {
@@ -57,18 +58,20 @@ public class ConnectionHandler {
     public JsonObject getConnectionUiSchema(String connectorName, String connectionType) throws IOException {
 
         Connector connector = connectorHolder.getConnector(connectorName);
-        if (connector == null || connectionType == null) {
-            return null;
+        if (connector != null) {
+            Map<String, String> connectionSchemas = connector.getConnectionUiSchema();
+            if (connectionSchemas != null) {
+                String path = connectionSchemas.get(connectionType.toUpperCase());
+                if (path != null) {
+                    File file = new File(path);
+                    if (file.exists()) {
+                        String uiSchemaString = Utils.readFile(file);
+                        return Utils.getJsonObject(uiSchemaString);
+                    }
+                }
+            }
         }
-        String path = connector.getConnectionUiSchemaPath(connectionType);
-        if (path == null) {
-            return null;
-        }
-        File file = new File(path);
-        if (!file.exists()) {
-            return null;
-        }
-        return Utils.getJsonObject(Utils.readFile(file));
+        return null;
     }
 
     public JsonObject getConnectionUiSchema(String documentUri) throws IOException {

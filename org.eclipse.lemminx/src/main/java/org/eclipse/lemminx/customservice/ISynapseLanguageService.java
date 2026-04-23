@@ -27,7 +27,9 @@ import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorPara
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.Connector;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorDetails;
 import org.eclipse.lemminx.customservice.synapse.api.generator.pojo.GenerateAPIParam;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorInfoDto;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorInfoRequest;
+import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorInfoResponse;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.ConnectorResponse;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.TestConnectionRequest;
 import org.eclipse.lemminx.customservice.synapse.connectors.entity.TestConnectionResponse;
@@ -322,13 +324,13 @@ public interface ISynapseLanguageService {
     CompletableFuture<MCPToolResponse> getMCPTools(MCPToolRequest param);
 
     @JsonRequest
-    CompletableFuture<Either<ConnectorResponse, String>> resolveConnector(UpdateDependencyRequest request);
+    CompletableFuture<Either<ConnectorInfoResponse, String>> resolveConnector(UpdateDependencyRequest request);
 
     @JsonRequest
     CompletableFuture<ConnectorDetails> isDuplicateConnector(ConnectorDetails request);
 
     @JsonRequest
-    CompletableFuture<Either<Connector, String>> getConnectorInfo(ConnectorInfoRequest request);
+    CompletableFuture<Either<ConnectorInfoDto, String>> getConnectorInfo(ConnectorInfoRequest request);
 
     @JsonRequest
     CompletableFuture<Either<InboundEndpointInfo, String>> getInboundInfo(InboundInfoRequest request);
