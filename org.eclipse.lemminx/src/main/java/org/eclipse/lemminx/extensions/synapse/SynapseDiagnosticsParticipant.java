@@ -35,9 +35,12 @@ import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 
 import org.eclipse.lemminx.dom.DOMAttr;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.stream.Stream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -1433,10 +1436,12 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
     }
 
     /**
-     * Returns {@code true} if the project has an Extracted dependency directory
-     * under {@code ~/.wso2-mi/integration-project-dependencies/<name>_<hash>/Extracted/}.
-     * Used to avoid calling {@code loadDependentResources} (and the WARNING log it
-     * emits) for projects without dependent integration projects.
+     * Returns {@code true} if the project has a non-empty Extracted dependency
+     * directory under {@code ~/.wso2-mi/integration-project-dependencies/<name>_<hash>/Extracted/}.
+     * The directory itself can be created as a side-effect of earlier tooling even
+     * when the project has no dependencies, so the contents must be checked to
+     * avoid calling {@code loadDependentResources} (and the WARNING log it emits)
+     * for empty layouts.
      */
     private static boolean hasDependentProjectResources(String projectPath) {
         Path projectDir = Paths.get(projectPath);
@@ -1450,7 +1455,14 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
                 Constant.INTEGRATION_PROJECT_DEPENDENCIES,
                 fileName.toString() + Constant.UNDERSCORE + Utils.getHash(projectPath),
                 Constant.EXTRACTED);
-        return extractedDir.toFile().isDirectory();
+        if (!Files.isDirectory(extractedDir)) {
+            return false;
+        }
+        try (Stream<Path> entries = Files.list(extractedDir)) {
+            return entries.findAny().isPresent();
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /**
