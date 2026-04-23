@@ -492,8 +492,11 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     private ResolvedArtifact downloadAndExtractArtifact(String groupId, String artifactId, String version)
             throws IOException {
 
-        String miVersion = StringUtils.isNotBlank(projectServerVersion)
-                ? projectServerVersion : Constant.DEFAULT_MI_VERSION;
+        // Use the raw pom.xml runtime version (not the schema-mapped projectServerVersion)
+        // so the cache folder reflects the user's actual MI runtime: a 4.5.0 project
+        // caches under .../copilot/4.5.0/ instead of being collapsed to 4.4.0 by
+        // MI_SUPPORTED_VERSION_MAP (which is only meant for XSD schema selection).
+        String miVersion = Utils.getRawRuntimeVersion(projectUri, Constant.DEFAULT_MI_VERSION);
         File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
                 Constant.COPILOT, miVersion).toFile();
         File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();

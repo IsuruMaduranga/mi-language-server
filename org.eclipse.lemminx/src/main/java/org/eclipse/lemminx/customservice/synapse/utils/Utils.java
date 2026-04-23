@@ -995,6 +995,36 @@ public class Utils {
         }
     }
 
+    /**
+     * Returns the raw {@code <project.runtime.version>} value from pom.xml when it
+     * matches {@code x.y.z}, otherwise returns {@code defaultVersion}. Unlike
+     * {@link #getServerVersion(String, String)}, this does NOT collapse the version
+     * through {@link Constant#MI_SUPPORTED_VERSION_MAP} — callers that need the
+     * actual project runtime (e.g., for user-facing cache directories) should use
+     * this variant.
+     */
+    public static String getRawRuntimeVersion(String projectPath, String defaultVersion) {
+        try {
+            Path pomPath = Path.of(projectPath, "pom.xml");
+            File pomFile = pomPath.toFile();
+            DOMDocument document = getDOMDocument(pomFile);
+
+            DOMNode propertiesList = getChildNodeByName(document.getDocumentElement(), "properties");
+            if (propertiesList != null) {
+                DOMNode runtimeVersionList = getChildNodeByName(propertiesList, "project.runtime.version");
+                if (runtimeVersionList != null) {
+                    String version = getInlineString(runtimeVersionList.getFirstChild());
+                    if (version != null && Pattern.matches("^\\d+\\.\\d+\\.\\d+$", version)) {
+                        return version;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error occurred while extracting raw runtime version.", e);
+        }
+        return defaultVersion;
+    }
+
     public static String getServerVersion(String projectPath, String defaultVersion) {
         try {
             Path pomPath = Path.of(projectPath, "pom.xml");
