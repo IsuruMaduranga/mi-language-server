@@ -408,14 +408,11 @@ public class SynapseLanguageService implements ISynapseLanguageService {
                 return Either.forRight("Failed to read connector metadata: " + request.artifactId);
             }
 
-            // Upsert into ConnectorHolder so subsequent availableConnectors queries find
-            // this connector. Replace any older registration of the same name so the
-            // caller's requested version wins.
-            if (connectorHolder.exists(connector.getName())) {
-                connectorHolder.removeConnector(connector.getName());
-            }
+            // Copilot lookups are read-only with respect to the project's
+            // ConnectorHolder — we return metadata but do NOT register the
+            // connector as a project dependency. The zip path is still set on
+            // the DTO so the caller can reach the cached file if it needs to.
             connector.setConnectorZipPath(zipFile.getAbsolutePath());
-            connectorHolder.addConnector(connector);
             return Either.forLeft(ConnectorInfoDto.from(connector));
         });
     }
@@ -481,8 +478,13 @@ public class SynapseLanguageService implements ISynapseLanguageService {
      * Resolves a Maven artifact to a local extracted directory. Downloads from
      * WSO2 Nexus (or copies from the local {@code .m2} repo) if the zip isn't
      * already cached, then extracts if needed. Both the zip and the extracted
-     * folder live under {@code ~/.wso2-mi/connectors/<projectId>/} keyed by
-     * {@code <artifactId>-<version>} so multiple versions coexist on disk.
+     * folder live under a machine-wide {@code ~/.wso2-mi/copilot/<MI-version>/}
+     * cache keyed by {@code <artifactId>-<version>}. This is intentionally
+     * separate from the per-project {@code ~/.wso2-mi/connectors/<projectId>/}
+     * cache so Copilot lookups for connectors that are NOT in the project's
+     * pom don't pollute the project's connector list (scanned by
+     * {@code NewProjectConnectorLoader}) or get evicted by
+     * {@code ConnectorDownloadManager.deleteRemovedConnectors}.
      *
      * @throws IllegalStateException if the download fails to produce a zip file.
      * @throws IOException on extract/download I/O errors.
@@ -490,9 +492,10 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     private ResolvedArtifact downloadAndExtractArtifact(String groupId, String artifactId, String version)
             throws IOException {
 
-        String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
+        String miVersion = StringUtils.isNotBlank(projectServerVersion)
+                ? projectServerVersion : Constant.DEFAULT_MI_VERSION;
         File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
-                Constant.CONNECTORS, projectId).toFile();
+                Constant.COPILOT, miVersion).toFile();
         File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
         File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
         downloadDir.mkdirs();
@@ -1036,14 +1039,6 @@ public class SynapseLanguageService implements ISynapseLanguageService {
                 return Either.forRight("Project is not initialized");
             }
 
-            String projectId = new File(projectUri).getName() + "_" + Utils.getHash(projectUri);
-            File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
-                    Constant.CONNECTORS, projectId).toFile();
-            File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
-            File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
-            downloadDir.mkdirs();
-            extractDir.mkdirs();
-
             List<Connector> resolvedConnectors = new ArrayList<>();
             List<String> errors = new ArrayList<>();
 
@@ -1052,40 +1047,20 @@ public class SynapseLanguageService implements ISynapseLanguageService {
                     errors.add("Skipping dependency with missing groupId, artifact, or version");
                     continue;
                 }
-
                 try {
-                    File zipFile = new File(downloadDir,
-                            dep.getArtifact() + "-" + dep.getVersion() + Constant.ZIP_EXTENSION);
-                    if (!zipFile.exists()) {
-                        File localCopy = Utils.getDependencyFromLocalRepo(dep.getGroupId(),
-                                dep.getArtifact(), dep.getVersion(), dep.getType());
-                        if (localCopy != null) {
-                            Utils.copyFile(localCopy.getPath(), downloadDir.getPath());
-                        } else {
-                            Utils.downloadConnector(dep.getGroupId(), dep.getArtifact(), dep.getVersion(),
-                                    downloadDir, Constant.ZIP_EXTENSION_NO_DOT, projectUri);
-                        }
-                    }
-
-                    if (!zipFile.exists()) {
-                        errors.add("Failed to download connector: " + dep.getArtifact());
-                        continue;
-                    }
-
-                    File connectorExtractDir = new File(extractDir,
-                            dep.getArtifact() + "-" + dep.getVersion());
-                    if (!connectorExtractDir.exists()) {
-                        Utils.extractZip(zipFile, connectorExtractDir);
-                    }
-
+                    ResolvedArtifact artifact = downloadAndExtractArtifact(
+                            dep.getGroupId(), dep.getArtifact(), dep.getVersion());
                     ConnectorReader connectorReader = new ConnectorReader();
                     Connector connector = connectorReader.readConnector(
-                            connectorExtractDir.getAbsolutePath(), projectUri);
+                            artifact.extractDir.getAbsolutePath(), projectUri);
                     if (connector != null) {
+                        connector.setConnectorZipPath(artifact.zipFile.getAbsolutePath());
                         resolvedConnectors.add(connector);
                     } else {
                         errors.add("Failed to read connector metadata: " + dep.getArtifact());
                     }
+                } catch (IllegalStateException e) {
+                    errors.add(e.getMessage());
                 } catch (IOException e) {
                     log.log(Level.WARNING, "Error resolving connector: " + dep.getArtifact(), e);
                     errors.add("Error resolving " + dep.getArtifact() + ": " + e.getMessage());
