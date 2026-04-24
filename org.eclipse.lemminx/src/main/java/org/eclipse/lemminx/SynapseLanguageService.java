@@ -184,6 +184,27 @@ public class SynapseLanguageService implements ISynapseLanguageService {
         }
     };
 
+    // Published once init() loads deps; read through so RPC re-loads are reflected automatically.
+    private static volatile AbstractResourceFinder loadedResourceFinder;
+
+    /**
+     * Dependent integration-project resources loaded at LS init. Empty before init runs
+     * (e.g. unit tests that exercise participants directly).
+     */
+    public static Map<String, ResourceResponse> getLoadedDependentResources() {
+        AbstractResourceFinder finder = loadedResourceFinder;
+        return finder != null ? finder.getDependentResourcesMap() : Collections.emptyMap();
+    }
+
+    /**
+     * Publishes a pre-loaded finder so {@link #getLoadedDependentResources()} sees its map.
+     * Called internally by {@link #init} and by tests that exercise cross-project reference
+     * validation without going through a full LS initialisation.
+     */
+    public static void setLoadedResourceFinder(AbstractResourceFinder finder) {
+        loadedResourceFinder = finder;
+    }
+
     private XMLTextDocumentService xmlTextDocumentService;
     private XMLLanguageServer xmlLanguageServer;
     private SynapseLanguageClientAPI languageClient;
@@ -242,6 +263,7 @@ public class SynapseLanguageService implements ISynapseLanguageService {
             this.expressionHelperProvider = new ExpressionHelperProvider(projectUri);
             resourceFinder = ResourceFinderFactory.getResourceFinder(isLegacyProject);
             resourceFinder.loadDependentResources(projectUri);
+            setLoadedResourceFinder(resourceFinder);
         } else {
             log.log(Level.SEVERE, "Project path is null. Language server initialization failed.");
         }

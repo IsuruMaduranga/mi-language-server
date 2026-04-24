@@ -14,6 +14,7 @@
 
 package org.eclipse.lemminx.extensions.synapse;
 
+import org.eclipse.lemminx.SynapseLanguageService;
 import org.eclipse.lemminx.customservice.synapse.utils.Constant;
 import org.eclipse.lemminx.customservice.synapse.utils.Utils;
 import org.eclipse.lemminx.customservice.synapse.resourceFinder.NewProjectResourceFinder;
@@ -35,12 +36,9 @@ import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 
 import org.eclipse.lemminx.dom.DOMAttr;
 
-import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.stream.Stream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -1392,24 +1390,10 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
             Map<String, ResourceResponse> allResources = resourceFinder.findAllResources(projectPath);
             collectResourceNames(allResources, artifactNames, templatePaths, nameToFiles);
 
-            // Also include artifacts from dependent integration projects declared in pom.xml.
-            // These live under ~/.wso2-mi/integration-project-dependencies/<name>_<hash>/Extracted/
-            // and are populated by SynapseLanguageService at init, but this participant uses a
-            // throwaway finder, so we need to load them here too.
-            // Guard the call: loadDependentResources logs a WARNING when the dependency directory
-            // is missing, which is the common case for projects without dependent integrations.
-            // The outer cache already prevents re-scanning on every keystroke.
-            if (hasDependentProjectResources(projectPath)) {
-                try {
-                    resourceFinder.loadDependentResources(projectPath);
-                    collectResourceNames(resourceFinder.getDependentResourcesMap(),
-                            artifactNames, templatePaths, nameToFiles);
-                } catch (Exception e) {
-                    LOGGER.log(Level.WARNING,
-                            "Failed to load dependent project resources; cross-project references may be flagged",
-                            e);
-                }
-            }
+            // Dependent-project artifacts were loaded once by SynapseLanguageService at init;
+            // read through the published finder instead of re-loading on every cache miss.
+            collectResourceNames(SynapseLanguageService.getLoadedDependentResources(),
+                    artifactNames, templatePaths, nameToFiles);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to build artifact name index for cross-reference validation", e);
             return null;
@@ -1433,36 +1417,6 @@ public class SynapseDiagnosticsParticipant implements IDiagnosticsParticipant {
         artifactIndexCache.put(projectPath, new CachedArtifactIndex(
                 artifactNames, templatePaths, duplicates, cycles, System.currentTimeMillis()));
         return artifactNames;
-    }
-
-    /**
-     * Returns {@code true} if the project has a non-empty Extracted dependency
-     * directory under {@code ~/.wso2-mi/integration-project-dependencies/<name>_<hash>/Extracted/}.
-     * The directory itself can be created as a side-effect of earlier tooling even
-     * when the project has no dependencies, so the contents must be checked to
-     * avoid calling {@code loadDependentResources} (and the WARNING log it emits)
-     * for empty layouts.
-     */
-    private static boolean hasDependentProjectResources(String projectPath) {
-        Path projectDir = Paths.get(projectPath);
-        Path fileName = projectDir.getFileName();
-        if (fileName == null) {
-            return false;
-        }
-        Path extractedDir = Paths.get(
-                System.getProperty(Constant.USER_HOME),
-                Constant.WSO2_MI,
-                Constant.INTEGRATION_PROJECT_DEPENDENCIES,
-                fileName.toString() + Constant.UNDERSCORE + Utils.getHash(projectPath),
-                Constant.EXTRACTED);
-        if (!Files.isDirectory(extractedDir)) {
-            return false;
-        }
-        try (Stream<Path> entries = Files.list(extractedDir)) {
-            return entries.findAny().isPresent();
-        } catch (IOException e) {
-            return false;
-        }
     }
 
     /**

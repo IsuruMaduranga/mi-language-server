@@ -14,7 +14,9 @@
 
 package org.eclipse.lemminx.extensions.synapse;
 
+import org.eclipse.lemminx.SynapseLanguageService;
 import org.eclipse.lemminx.commons.TextDocument;
+import org.eclipse.lemminx.customservice.synapse.resourceFinder.NewProjectResourceFinder;
 import org.eclipse.lemminx.customservice.synapse.utils.Utils;
 import org.eclipse.lemminx.dom.DOMDocument;
 import org.eclipse.lemminx.dom.DOMParser;
@@ -1515,6 +1517,18 @@ public class SynapseDiagnosticsParticipantTest {
             System.setProperty("user.home", originalUserHome);
             originalUserHome = null;
         }
+        SynapseLanguageService.setLoadedResourceFinder(null);
+    }
+
+    /**
+     * Simulates what {@link SynapseLanguageService#init} does for dependent projects:
+     * loads them via a real finder and publishes it so the diagnostics participant
+     * can see the resulting map through {@link SynapseLanguageService#getLoadedDependentResources()}.
+     */
+    private void loadDependentResourcesForProject(Path projectPath) {
+        NewProjectResourceFinder finder = new NewProjectResourceFinder();
+        finder.loadDependentResources(projectPath.toString());
+        SynapseLanguageService.setLoadedResourceFinder(finder);
     }
 
     /**
@@ -1557,6 +1571,7 @@ public class SynapseDiagnosticsParticipantTest {
         Files.writeString(depSequence,
                 "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"fromDep\"><log/></sequence>");
 
+        loadDependentResourcesForProject(consumer);
         List<Diagnostic> diags = diagnoseAtPath(xml, apiXml);
         List<Diagnostic> unresolved = diagnosticsWithCode(diags, "UnresolvedArtifactReference");
         assertTrue(unresolved.isEmpty(),
@@ -1585,6 +1600,7 @@ public class SynapseDiagnosticsParticipantTest {
         Files.writeString(depSequence,
                 "<sequence xmlns=\"" + SYNAPSE_NS + "\" name=\"somethingElse\"><log/></sequence>");
 
+        loadDependentResourcesForProject(consumer);
         List<Diagnostic> diags = diagnoseAtPath(xml, apiXml);
         List<Diagnostic> unresolved = diagnosticsWithCode(diags, "UnresolvedArtifactReference");
         assertEquals(1, unresolved.size());
