@@ -499,14 +499,15 @@ public class SynapseLanguageService implements ISynapseLanguageService {
     /**
      * Resolves a Maven artifact to a local extracted directory. Downloads from
      * WSO2 Nexus (or copies from the local {@code .m2} repo) if the zip isn't
-     * already cached, then extracts if needed. Both the zip and the extracted
-     * folder live under a machine-wide {@code ~/.wso2-mi/copilot/<MI-version>/}
-     * cache keyed by {@code <artifactId>-<version>}. This is intentionally
-     * separate from the per-project {@code ~/.wso2-mi/connectors/<projectId>/}
-     * cache so Copilot lookups for connectors that are NOT in the project's
-     * pom don't pollute the project's connector list (scanned by
-     * {@code NewProjectConnectorLoader}) or get evicted by
-     * {@code ConnectorDownloadManager.deleteRemovedConnectors}.
+     * already cached, then extracts if needed. The cache lives under a
+     * machine-wide {@code ~/.wso2-mi/copilot/cache/artifacts/<MI-version>/}
+     * directory and is partitioned by a sanitised {@code groupId} segment so
+     * two artifacts that share an artifactId+version across different groupIds
+     * don't collide. This is intentionally separate from the per-project
+     * {@code ~/.wso2-mi/connectors/<projectId>/} cache so Copilot lookups for
+     * connectors that are NOT in the project's pom don't pollute the project's
+     * connector list (scanned by {@code NewProjectConnectorLoader}) or get
+     * evicted by {@code ConnectorDownloadManager.deleteRemovedConnectors}.
      *
      * @throws IllegalStateException if the download fails to produce a zip file.
      * @throws IOException on extract/download I/O errors.
@@ -516,13 +517,18 @@ public class SynapseLanguageService implements ISynapseLanguageService {
 
         // Use the raw pom.xml runtime version (not the schema-mapped projectServerVersion)
         // so the cache folder reflects the user's actual MI runtime: a 4.5.0 project
-        // caches under .../copilot/4.5.0/ instead of being collapsed to 4.4.0 by
-        // MI_SUPPORTED_VERSION_MAP (which is only meant for XSD schema selection).
+        // caches under .../copilot/cache/artifacts/4.5.0/ instead of being collapsed to
+        // 4.4.0 by MI_SUPPORTED_VERSION_MAP (which is only meant for XSD schema selection).
         String miVersion = Utils.getRawRuntimeVersion(projectUri, Constant.DEFAULT_MI_VERSION);
+        // Partition the cache by a sanitised groupId so two artifacts that share an
+        // artifactId+version across different groupIds don't overwrite each other.
+        // The download/extract helpers always name files <artifactId>-<version>, so
+        // disambiguating via a parent directory is what keeps the cache collision-free.
+        String safeGroupId = groupId.replaceAll("[^a-zA-Z0-9._-]", "_");
         File directory = Path.of(System.getProperty(Constant.USER_HOME), Constant.WSO2_MI,
-                Constant.COPILOT, miVersion).toFile();
-        File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED).toFile();
-        File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED).toFile();
+                Constant.COPILOT, Constant.CACHE, Constant.ARTIFACTS, miVersion).toFile();
+        File downloadDir = Path.of(directory.getAbsolutePath(), Constant.DOWNLOADED, safeGroupId).toFile();
+        File extractDir = Path.of(directory.getAbsolutePath(), Constant.EXTRACTED, safeGroupId).toFile();
         downloadDir.mkdirs();
         extractDir.mkdirs();
 

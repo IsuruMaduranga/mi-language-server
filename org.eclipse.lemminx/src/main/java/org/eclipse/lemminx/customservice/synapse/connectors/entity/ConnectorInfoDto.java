@@ -47,7 +47,6 @@ public class ConnectorInfoDto {
     private String version;
     private String extractedConnectorPath;
     private String connectorZipPath;
-    private String iconPath;
     private String uiSchemaPath;
     private String outputSchemaPath;
     private String ballerinaModulePath;
@@ -70,7 +69,6 @@ public class ConnectorInfoDto {
         dto.version = connector.getVersion();
         dto.extractedConnectorPath = connector.getExtractedConnectorPath();
         dto.connectorZipPath = connector.getConnectorZipPath();
-        dto.iconPath = connector.getIconPath();
         dto.uiSchemaPath = connector.getUiSchemaPath();
         dto.outputSchemaPath = connector.getOutputSchemaPath();
         dto.ballerinaModulePath = connector.getBallerinaModulePath();
@@ -174,11 +172,6 @@ public class ConnectorInfoDto {
     public String getConnectorZipPath() {
 
         return connectorZipPath;
-    }
-
-    public String getIconPath() {
-
-        return iconPath;
     }
 
     public String getUiSchemaPath() {
